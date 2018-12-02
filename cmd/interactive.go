@@ -59,6 +59,20 @@ var (
 			fmt.Printf("Verbose is %s\n", vs)
 		},
 	}
+
+	debugCmd = &cobra.Command{
+		Use:   "debug",
+		Short: "Toggle debug mode and print status.",
+		Long:  "Toggle debug, verbose will print out detailed status as its happening.",
+		Run: func(cmd *cobra.Command, args []string) {
+			viper.Set("debug", !viper.GetBool("debug"))
+			vs := "Off"
+			if viper.GetBool("debug") {
+				vs = "On"
+			}
+			fmt.Printf("Debug is %s\n", vs)
+		},
+	}
 )
 
 // Parse the line and execute the command
@@ -69,6 +83,7 @@ func doICommand(line string) (err error) {
 
 	rootCmd.AddCommand(exitCmd)
 	rootCmd.AddCommand(verboseCmd)
+	rootCmd.AddCommand(debugCmd)
 
 	rootCmd.SetArgs(strings.Split(line, " "))
 	err = rootCmd.Execute()
@@ -76,8 +91,9 @@ func doICommand(line string) (err error) {
 }
 
 func promptLoop(process func(string) error) (err error) {
+	hubURL := viper.GetString("hubURL")
 	for moreCommands := true; moreCommands; {
-		prompt := fmt.Sprintf("%sjhmon:%s ", pColor.title, pColor.reset)
+		prompt := fmt.Sprintf("%sjhmon [%s]:%s ", pColor.title, hubURL, pColor.reset)
 		line, err := readline.Line(prompt)
 		if err == io.EOF {
 			moreCommands = false

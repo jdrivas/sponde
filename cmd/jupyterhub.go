@@ -2,108 +2,150 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"strings"
-	"text/tabwriter"
 
 	jh "github.com/jdrivas/jhmon/jupyterhub"
 	"github.com/spf13/cobra"
 )
 
-// var listUsersCmd, describeUsersCmd *cobra.Command
+func cmdError(e error) {
+	fmt.Printf("Error: %s\n", e)
+}
 
 func buildJupyterHub(mode runMode) {
 
-	infoCmd := &cobra.Command{
+	// Util
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "version",
+		Short: "Get the hub version",
+		Long:  "Returns the version number of the running JupyterHub.",
+		Run: func(cmd *cobra.Command, args []string) {
+			version, err := jh.GetVersion()
+			if err == nil {
+				version.Print()
+			} else {
+				cmdError(err)
+			}
+		},
+	})
+
+	rootCmd.AddCommand(&cobra.Command{
 		Use:   "info",
 		Short: "Get detailed about hub",
 		Long:  "Returns detailed information about the running Hub",
 		Run: func(cmd *cobra.Command, args []string) {
 			info, err := jh.GetInfo()
 			if err == nil {
-				python := strings.Split(info.Python, "\n")
-				w := tabwriter.NewWriter(os.Stdout, 4, 4, 3, ' ', 0)
-				fmt.Fprintf(w, "JupyterHub Version:\t%s\n", info.Version)
-				fmt.Fprintf(w, "JupyterHub System Executable:\t%s\n", info.SysExecutable)
-				fmt.Fprintf(w, "Authenticator Class:\t%s\n", info.Authenticator.Class)
-				fmt.Fprintf(w, "Authenticator Version:\t%s\n", info.Authenticator.Version)
-				fmt.Fprintf(w, "Spawner Class:\t%s\n", info.Spawner.Class)
-				fmt.Fprintf(w, "Spawner Version:\t%s\n", info.Spawner.Version)
-				// fmt.Fprintf(w, "Python\n")
-				for _, l := range python {
-					fmt.Fprintf(w, "Python:\t%s\n", l)
-				}
-				w.Flush()
-
+				info.Print()
 			} else {
-				fmt.Printf("ERROR: %#v", err)
+				cmdError(err)
 			}
 		},
-	}
-	rootCmd.AddCommand(infoCmd)
+	})
 
-	listUsersCmd := &cobra.Command{
-		Use:   "users",
-		Short: "Get a list of current hub users",
-		Long:  "Returns a list of users from the connected Hub.",
+	// Proxy Routes
+	var proxyCmd = &cobra.Command{
+		Use:     "proxy",
+		Aliases: []string{"routes"},
+		Short:   "The proxy's routing table",
+		Long:    "Returns the routing table from the JupyterHub proxy",
+		Args: func(cmd *cobra.Command, args []string) error {
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
-			users, err := jh.GetUsers()
+			routes, err := jh.GetProxy()
 			if err == nil {
-				w := tabwriter.NewWriter(os.Stdout, 4, 4, 3, ' ', 0)
-				fmt.Fprintf(w, "Name\tAdmin\tCreated\tServer\tLast\n")
-				for _, u := range users {
-					fmt.Fprintf(w, "%s\t%t\t%s\t%s\t%s\n", u.Name, u.Admin, u.Created, u.ServerURL, u.LastActivity)
-				}
-				w.Flush()
+				routes.Print()
 			} else {
-				fmt.Printf("ERROR: %#v", err)
+				cmdError(err)
 			}
 		},
 	}
-	listCmd.AddCommand(listUsersCmd)
+	rootCmd.AddCommand(proxyCmd)
+	listCmd.AddCommand(proxyCmd)
 
-	describeUsersCmd := &cobra.Command{
+	// Users
+	listCmd.AddCommand(&cobra.Command{
+		Use:   "users",
+		Short: "Get a data on a user or all users",
+		Long:  "Returns a list of users from the connected Hub, or if users are specified, data on those usrs.",
+		Run: func(cmd *cobra.Command, args []string) {
+			if len(args) == 0 {
+				users, err := jh.GetUsers()
+				if err == nil {
+					jh.ListUsers(users)
+				} else {
+					cmdError(err)
+				}
+			} else {
+				var users jh.Users
+				var badUsers []string
+				for _, username := range args {
+					user, err := jh.GetUser(username)
+					if err == nil {
+						users = append(users, user)
+					} else {
+						badUsers = append(badUsers, username)
+					}
+				}
+				if len(users) > 0 {
+					jh.ListUsers(users)
+				}
+				if len(badUsers) > 0 {
+					fmt.Printf("\nThese users were not found:\n")
+					for _, u := range badUsers {
+						fmt.Printf("%s\n", u)
+					}
+				}
+			}
+		},
+	})
+
+	describeCmd.AddCommand(&cobra.Command{
 		Use:   "users",
 		Short: "Long description of a hub user",
 		Long:  "Returns a description of the user on the Hub.",
 		Run: func(cmd *cobra.Command, args []string) {
 			users, err := jh.GetUsers()
 			if err == nil {
-				for _, u := range users {
-					w := tabwriter.NewWriter(os.Stdout, 4, 4, 3, ' ', 0)
-					fmt.Fprintf(w, "Name\tKind\tAdmin\tServer\n")
-					fmt.Fprintf(w, "%s\t%s\t%t\t%s\n", u.Name, u.Kind, u.Admin, u.ServerURL)
-					w.Flush()
-					fmt.Println()
-					w = tabwriter.NewWriter(os.Stdout, 4, 4, 3, ' ', 0)
-					fmt.Fprintf(w, "Created\tLast Activity\tPending\n")
-					pending := "<empty>"
-					if u.Pending != "" {
-						pending = u.Pending
-					}
-					fmt.Fprintf(w, "%s\t%s\t%s\n", u.Created, u.LastActivity, pending)
-					w.Flush()
-					fmt.Printf("\nServers\n")
-					for _, s := range u.Servers {
-						w = tabwriter.NewWriter(os.Stdout, 4, 4, 3, ' ', 0)
-						fmt.Fprintf(w, "Name\tReady\tPending\tStarted\tLast Activity\n")
-						name := "<empty>"
-						if s.Name != "" {
-							name = s.Name
-						}
-						pending := "<empty>"
-						if s.Pending != "" {
-							pending = u.Pending
-						}
-						fmt.Fprintf(w, "%s\t%t\t%s\t%s\t%s\n", name, s.Ready, pending, s.Started, s.LastActivity)
-						w.Flush()
-					}
-				}
+				jh.DescribeUsers(users)
 			} else {
-				fmt.Printf("ERROR: %#v", err)
+				cmdError(err)
 			}
 		},
-	}
-	describeCmd.AddCommand(describeUsersCmd)
+	})
+
+	// Tokens
+	listCmd.AddCommand(&cobra.Command{
+		Use:     "tokens",
+		Aliases: []string{"token"},
+		Short:   "get a users tokens",
+		Long:    "Returns a list of tokens associated with the user.",
+		Args:    cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			tokens, err := jh.GetTokens(args[0])
+			if err == nil {
+				tokens.Print()
+			}
+		},
+	})
+
+	// Services
+	listCmd.AddCommand(&cobra.Command{
+		Use:   "services",
+		Short: "List of services",
+		Long:  "Returns infomration of the services that the Hub supports.",
+		Run: func(cmd *cobra.Command, args []string) {
+			services, err := jh.GetServices()
+			if err == nil && len(services) > 0 {
+				jh.ListServices(services)
+			} else {
+				if err != nil {
+					cmdError(err)
+				} else {
+					fmt.Println("There were no services.")
+				}
+			}
+		},
+	})
 
 }

@@ -1,8 +1,10 @@
 package jupyterhub
 
 import (
-	"encoding/json"
-	"io/ioutil"
+	"fmt"
+	"os"
+	"strings"
+	"text/tabwriter"
 )
 
 type Info struct {
@@ -23,14 +25,31 @@ type Spawner struct {
 	Version string `json:"version"`
 }
 
-// GetUsers returns a list of logged in JupyterHub users.
+// GetInfo returns the Hub's system information.
 func GetInfo() (info Info, err error) {
 	resp, err := callJHGet("/info")
-	body := []byte{}
 	if err == nil {
-		body, err = ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
+		unmarshal(resp, &info)
 	}
-	json.Unmarshal(body, &info)
 	return info, err
+}
+
+// Print prints to stdout a list view of hub's information.
+func (info *Info) Print() {
+	w := tabwriter.NewWriter(os.Stdout, 4, 4, 3, ' ', 0)
+	fmt.Fprintf(w, "JupyterHub Version:\t%s\n", info.Version)
+	fmt.Fprintf(w, "JupyterHub System Executable:\t%s\n", info.SysExecutable)
+	fmt.Fprintf(w, "Authenticator Class:\t%s\n", info.Authenticator.Class)
+	fmt.Fprintf(w, "Authenticator Version:\t%s\n", info.Authenticator.Version)
+	fmt.Fprintf(w, "Spawner Class:\t%s\n", info.Spawner.Class)
+	fmt.Fprintf(w, "Spawner Version:\t%s\n", info.Spawner.Version)
+
+	python := strings.Split(info.Python, "\n")
+	if len(python) > 0 {
+		fmt.Fprintf(w, "Python:\t%s\n", python[0])
+		for _, l := range python[1:] {
+			fmt.Fprintf(w, "\t%s\n", l)
+		}
+	}
+	w.Flush()
 }
