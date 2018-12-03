@@ -9,17 +9,19 @@ import (
 	"github.com/spf13/viper"
 )
 
-// var hubAPIURL = "http://athenaeum-staging-hub:8081/hub/api"
 var (
-	// hubAPIURL = "http://127.0.0.1:8081/hub/api"
 	hubClient = &http.Client{}
 )
 
 func newRequest(method, command string) (*http.Request, error) {
 	hubURL := viper.GetString("hubURL")
+	token := viper.GetString("token")
 	req, err := http.NewRequest(method, hubURL+command, nil)
 	if err == nil {
-		req.Header.Add("Authorization", fmt.Sprintf("token %s", viper.GetString("token")))
+		if viper.GetBool("debug") {
+			fmt.Printf("Using token authorization with token: %s\n", token)
+		}
+		req.Header.Add("Authorization", fmt.Sprintf("token %s", token))
 	}
 	return req, err
 }
@@ -29,7 +31,7 @@ func callJHGet(command string) (resp *http.Response, err error) {
 	req, err := newRequest(http.MethodGet, command)
 	resp, err = hubClient.Do(req)
 	if err == nil {
-		if viper.GetBool("debug") {
+		if viper.GetBool("verbose") {
 			fmt.Printf("Made HTTP Request: %#v\n", req)
 			fmt.Printf("Response is: %#v\n", *resp)
 		}
@@ -53,13 +55,37 @@ func unmarshal(resp *http.Response, obj interface{}) (err error) {
 // Get makes the get call with the command, and returns the
 // results in the provided object, unmarshalled from the
 // JSON in the response.
-func Get(cmd string, result interface{}) error {
+func get(cmd string, result interface{}) (*http.Response, error) {
 	resp, err := callJHGet(cmd)
-	if err == nil && resp.StatusCode == http.StatusNotFound {
-		err = fmt.Errorf("Response Status: %d - Item Not Found", http.StatusNotFound)
-	}
 	if err == nil {
-		unmarshal(resp, result)
+		if err = checkReturnCode(*resp); err == nil {
+			unmarshal(resp, result)
+		}
+	}
+	return resp, err
+}
+
+// Returns an "informative" error if not 200
+func checkReturnCode(resp http.Response) (err error) {
+	err = nil
+	if resp.StatusCode >= 300 {
+		switch resp.StatusCode {
+		case http.StatusUnauthorized:
+			err = httpErrorMesg(resp, "Check for valid token.")
+		case http.StatusForbidden:
+			err = httpErrorMesg(resp, "Check for valid token and token user must be an admin")
+		default:
+			err = httpError(resp)
+		}
 	}
 	return err
+}
+
+func httpErrorMesg(resp http.Response, message string) error {
+	return fmt.Errorf("HTTP Request %s:%s, HTTP Response -> %s. %s",
+		resp.Request.Method, resp.Request.URL, resp.Status, message)
+}
+
+func httpError(resp http.Response) error {
+	return httpErrorMesg(resp, "")
 }

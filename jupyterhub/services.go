@@ -4,7 +4,7 @@ import "fmt"
 
 // GetInfo returns the Hub's system information.
 func GetServices() (services []map[string]interface{}, err error) {
-	err = Get("/services", services)
+	_, err = get("/services", services)
 	return services, err
 }
 

@@ -31,7 +31,7 @@ type OAuthToken struct {
 }
 
 func GetTokens(username string) (token Tokens, err error) {
-	err = Get(fmt.Sprintf("/users/%s/tokens", username), &token)
+	_, err = get(fmt.Sprintf("/users/%s/tokens", username), &token)
 	return token, err
 }
 

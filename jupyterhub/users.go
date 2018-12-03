@@ -2,11 +2,12 @@ package jupyterhub
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"text/tabwriter"
 )
 
-type Users []User
+type UserList []User
 
 type User struct {
 	Name         string            `json:"name"`
@@ -36,17 +37,42 @@ type StateValues struct {
 
 // GetUser retruns a users information
 func GetUser(username string) (user User, err error) {
-	err = Get(fmt.Sprintf("%s%s", "/users/", username), &user)
+	_, err = get(fmt.Sprintf("%s%s", "/users/", username), &user)
 	return user, err
 }
 
-// GetUsers returns a list of logged in JupyterHub users.
-func GetUsers() (users Users, err error) {
-	err = Get("/users", &users)
+// GetUsers gets users details from the hub.
+// It returns a list of users for those that are found
+// on the hub,  list of usernamess that were not found,
+// and an errorif there we any problems.
+func GetUsers(usernames []string) (users UserList, badUsers []string, err error) {
+	for _, un := range usernames {
+		user := new(User)
+		var resp *http.Response
+		resp, err = get(fmt.Sprintf("%s%s", "/users/", un), user)
+		if err == nil {
+			users = append(users, *user)
+		} else {
+			if resp.StatusCode == http.StatusNotFound {
+				badUsers = append(badUsers, un)
+				err = nil
+			} else {
+				break
+			}
+		}
+	}
+	return users, badUsers, err
+}
+
+// GetAllUsers returns a list of logged in JupyterHub users.
+func GetAllUsers() (users UserList, err error) {
+	_, err = get("/users", &users)
 	return users, err
 }
 
-func ListUsers(users Users) {
+// ListUsers prints a consice one line at a time reprsentation of
+// users.
+func ListUsers(users UserList) {
 	w := tabwriter.NewWriter(os.Stdout, 4, 4, 3, ' ', 0)
 	fmt.Fprintf(w, "Name\tAdmin\tCreated\tServer\tLast\n")
 	for _, u := range users {
@@ -55,7 +81,8 @@ func ListUsers(users Users) {
 	w.Flush()
 }
 
-func DescribeUsers(users Users) {
+// Descrive users prints all of the infomration there is about each user.
+func DescribeUsers(users UserList) {
 	for _, u := range users {
 		w := tabwriter.NewWriter(os.Stdout, 4, 4, 3, ' ', 0)
 		fmt.Fprintf(w, "Name\tKind\tAdmin\tServer\n")

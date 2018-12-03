@@ -42,14 +42,14 @@ func buildRoot(mode runMode) {
 	listCmd = &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"get"},
-		Short:   "List elements of a collection.",
+		Short:   "Short description of a collection of objects.",
 		Long:    "Provides a short description of each element of a collection.",
 	}
 
 	describeCmd = &cobra.Command{
 		Use:   "describe",
-		Short: "Provides a description of something.",
-		Long:  "Provides a long description of an object.",
+		Short: "Longer  description of a a collection of objects.",
+		Long:  "Provides a longer, more complete  description of a collection object.",
 	}
 
 	// Other Commands.
@@ -82,22 +82,25 @@ func init() {
 		Long:  "A tool for managing a JuyterHub Hub through the JupyterHub API",
 	}
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file location. (defaul is ./.jhmon")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Describe what is happening as its happening.")
-	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "Describe details about what's happening.")
-	rootCmd.PersistentFlags().StringVarP(&hubURL, "hub-url", "u", "http://127.0.0.1", "The app will connect to the JupyterhHub at this URL.")
+	// Flags available to everyone.
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file location. (default is .jhmon.{yaml,json,toml}")
+	// fmt.Printf("Template:\n%s\n", rootCmd.UsageTemplate())
+	// To suport configuration files to populate, as well as flags, use these viper variables
+	// to access this global state
+	// e.g. token := viper.GetBool("token")
 	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "secert token for connecting to server.")
-	// This means that the values are obtained from viper when they are used.
-	// This is in contradistinction say, from Traitlets which bind values
-	// to an object and manage flags, config etc.
 	viper.BindPFlag("token", rootCmd.PersistentFlags().Lookup("token"))
+
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Describe what is happening as its happening.")
 	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
+
+	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "Describe details about what's happening.")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
+
+	rootCmd.PersistentFlags().StringVarP(&hubURL, "hub-url", "u", "http://127.0.0.1:8081/hub/api", "The app will connect to the JupyterhHub at this URL.")
 	viper.BindPFlag("hubURL", rootCmd.PersistentFlags().Lookup("hub-url"))
 
+	// Called before any command, and so in interactive mode, each time a command is executed.
 	cobra.OnInitialize(initConfig)
 }
 
@@ -130,8 +133,7 @@ func initConfig() {
 		}
 	} else {
 		if viper.GetBool("verbose") {
-			fmt.Printf("Error loading config: %v\n", err)
+			fmt.Printf("Error loading config file: %s - %v\n", viper.ConfigFileUsed(), err)
 		}
 	}
-
 }

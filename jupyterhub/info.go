@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 	"text/tabwriter"
+
+	"github.com/spf13/viper"
 )
 
 type Info struct {
@@ -27,16 +29,14 @@ type Spawner struct {
 
 // GetInfo returns the Hub's system information.
 func GetInfo() (info Info, err error) {
-	resp, err := callJHGet("/info")
-	if err == nil {
-		unmarshal(resp, &info)
-	}
+	_, err = get(fmt.Sprintf("/info"), &info)
 	return info, err
 }
 
 // Print prints to stdout a list view of hub's information.
 func (info *Info) Print() {
 	w := tabwriter.NewWriter(os.Stdout, 4, 4, 3, ' ', 0)
+	fmt.Fprintf(w, "JupyterHub API URL:\t%s\n", viper.GetString("hubURL"))
 	fmt.Fprintf(w, "JupyterHub Version:\t%s\n", info.Version)
 	fmt.Fprintf(w, "JupyterHub System Executable:\t%s\n", info.SysExecutable)
 	fmt.Fprintf(w, "Authenticator Class:\t%s\n", info.Authenticator.Class)
