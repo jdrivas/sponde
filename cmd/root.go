@@ -148,7 +148,7 @@ func initConfig() {
 		}
 	}
 
-	// Set up a default connection
+	// Set up connections from config.
 	initConnections()
 
 }

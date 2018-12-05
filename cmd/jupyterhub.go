@@ -71,16 +71,7 @@ func buildJupyterHub(mode runMode) {
 			w := tabwriter.NewWriter(os.Stdout, 4, 4, 3, ' ', 0)
 			fmt.Fprintf(w, "Name\tURL\tToken\n")
 			for _, c := range conns {
-				token = "****************"
-				if !viper.GetBool("neverShowTokens") {
-					if c.Token != "" {
-						if viper.GetBool("showTokens") {
-							token = c.Token
-						}
-					} else {
-						token = "<empty-token>"
-					}
-				}
+				token = config.MakeSafeTokenString(c)
 				fmt.Fprintf(w, "%s\t%s\t%s\n", c.Name, c.HubURL, token)
 			}
 			w.Flush()

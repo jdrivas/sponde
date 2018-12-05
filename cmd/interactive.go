@@ -96,13 +96,8 @@ func promptLoop(process func(string) error) (err error) {
 	for moreCommands := true; moreCommands; {
 		hubURL := config.GetHubURL()
 		connName := config.GetConnectionName()
-		token := config.GetToken()
-		if token == "" {
-			token = "empty-token"
-		} else {
-			token = token[0:7]
-		}
-		prompt := fmt.Sprintf("%sjhmon [%s - %s <%s>]:%s ", pColor.title, connName, hubURL, token, pColor.reset)
+		token = config.GetSafeToken()
+		prompt := fmt.Sprintf("%sjhmon [%s - %s %s]:%s ", pColor.title, connName, hubURL, token, pColor.reset)
 		line, err := readline.Line(prompt)
 		if err == io.EOF {
 			moreCommands = false

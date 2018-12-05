@@ -54,9 +54,26 @@ func GetHubURL() string {
 	return getCurrentConnection().HubURL
 }
 
-// GetToken returns  the connections Token
 func GetToken() string {
 	return getCurrentConnection().Token
+}
+
+// GetToken returns  the connections Token
+func GetSafeToken() string {
+	return MakeSafeTokenString(getCurrentConnection())
+}
+
+func MakeSafeTokenString(c Connection) string {
+	token := "*****"
+	if !viper.GetBool("neverShowToken") {
+		if viper.GetBool("showToken") {
+			token = c.Token
+			if token == "" {
+				token = "<empty-token>"
+			}
+		}
+	}
+	return token
 }
 
 // UpdateDefaultHubURL sets the hubURL for the default Connection
