@@ -6,16 +6,19 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/jdrivas/jhmon/config"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var (
-	rootCmd, listCmd, describeCmd, interactiveCmd *cobra.Command
-	cfgFile, token, hubURL                        string
-	verbose, debug                                bool
+	rootCmd, setCmd, listCmd, describeCmd, interactiveCmd *cobra.Command
+	cfgFile, token, hubURL                                string
+	verbose, debug                                        bool
 )
+
+const defaultHubURL = "http://127.0.0.1:8081"
 
 // This is pulled out specially, because for interactive
 // it gets run before each line is parsed.
@@ -39,6 +42,12 @@ func buildRoot(mode runMode) {
 		},
 	}
 
+	setCmd = &cobra.Command{
+		Use:   "set",
+		Short: "Set a value or values.",
+		Long:  "Sets the value or a list of values on an object or  applicaiton state.",
+	}
+
 	listCmd = &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"get"},
@@ -56,6 +65,7 @@ func buildRoot(mode runMode) {
 	if mode != interactive {
 		rootCmd.AddCommand(interactiveCmd)
 	}
+	rootCmd.AddCommand(setCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(describeCmd)
 	buildJupyterHub(mode)
@@ -84,21 +94,22 @@ func init() {
 
 	// Flags available to everyone.
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file location. (default is .jhmon.{yaml,json,toml}")
-	// fmt.Printf("Template:\n%s\n", rootCmd.UsageTemplate())
+	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "connect to the JupyterhHub with this authorization token.")
+	rootCmd.PersistentFlags().StringVarP(&hubURL, "hub-url", "u", "",
+		fmt.Sprintf("connect to the JupyterhHub at this URL. (default is%s)", defaultHubURL))
+
+	// viper.BindPFlag("token", rootCmd.PersistentFlags().Lookup("token"))
+	// viper.BindPFlag("hubURL", rootCmd.PersistentFlags().Lookup("hub-url"))
+
 	// To suport configuration files to populate, as well as flags, use these viper variables
 	// to access this global state
-	// e.g. token := viper.GetBool("token")
-	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "secert token for connecting to server.")
-	viper.BindPFlag("token", rootCmd.PersistentFlags().Lookup("token"))
+	// e.g. token := viper.GetBool("debug")
 
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Describe what is happening as its happening.")
 	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
 
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "Describe details about what's happening.")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
-
-	rootCmd.PersistentFlags().StringVarP(&hubURL, "hub-url", "u", "http://127.0.0.1:8081/hub/api", "The app will connect to the JupyterhHub at this URL.")
-	viper.BindPFlag("hubURL", rootCmd.PersistentFlags().Lookup("hub-url"))
 
 	// Called before any command, and so in interactive mode, each time a command is executed.
 	cobra.OnInitialize(initConfig)
@@ -135,5 +146,19 @@ func initConfig() {
 		if viper.GetBool("verbose") {
 			fmt.Printf("Error loading config file: %s - %v\n", viper.ConfigFileUsed(), err)
 		}
+	}
+
+	// Set up a default connection
+	initConnections()
+
+}
+
+func initConnections() {
+	config.InitConnections(defaultHubURL)
+	if rootCmd.PersistentFlags().Lookup("hub-url").Changed {
+		config.UpdateDefaultHubURL(hubURL)
+	}
+	if rootCmd.PersistentFlags().Lookup("token").Changed {
+		config.UpdateDefaultToken(token)
 	}
 }

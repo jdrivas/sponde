@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/chzyer/readline"
+	"github.com/jdrivas/jhmon/config"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -91,9 +92,17 @@ func doICommand(line string) (err error) {
 }
 
 func promptLoop(process func(string) error) (err error) {
-	hubURL := viper.GetString("hubURL")
+
 	for moreCommands := true; moreCommands; {
-		prompt := fmt.Sprintf("%sjhmon [%s]:%s ", pColor.title, hubURL, pColor.reset)
+		hubURL := config.GetHubURL()
+		connName := config.GetConnectionName()
+		token := config.GetToken()
+		if token == "" {
+			token = "empty-token"
+		} else {
+			token = token[0:7]
+		}
+		prompt := fmt.Sprintf("%sjhmon [%s - %s <%s>]:%s ", pColor.title, connName, hubURL, token, pColor.reset)
 		line, err := readline.Line(prompt)
 		if err == io.EOF {
 			moreCommands = false

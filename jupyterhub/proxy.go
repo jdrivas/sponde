@@ -24,10 +24,7 @@ type RouteData struct {
 
 // GetUsers returns a list of logged in JupyterHub users.
 func GetProxy() (routes Routes, err error) {
-	resp, err := callJHGet("/proxy")
-	if err == nil {
-		unmarshal(resp, &routes)
-	}
+	_, err = get("/proxy", &routes)
 	return routes, err
 }
 

@@ -2,9 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"text/tabwriter"
 
+	"github.com/jdrivas/jhmon/config"
 	jh "github.com/jdrivas/jhmon/jupyterhub"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 func cmdError(e error) {
@@ -41,6 +45,51 @@ func buildJupyterHub(mode runMode) {
 			}
 		},
 	})
+
+	// Connections
+	setCmd.AddCommand(&cobra.Command{
+		Use:     "connection",
+		Aliases: []string{"conn", "con"},
+		Short:   "Use the named connection to the Hub.",
+		Long:    "Sets the connection to the JupyterHub Hub to the named connection. ",
+		Args:    cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			err := config.SetConnection(args[0])
+			if err != nil {
+				cmdError(err)
+			}
+		},
+	})
+
+	var listConnsCmd = &cobra.Command{
+		Use:     "connections",
+		Aliases: []string{"conn", "con", "conns", "cons", "connection"},
+		Short:   "Available connections to a JupyterHub hub.",
+		Long:    "List all o fthe aviallable JupyterHub hub connections.",
+		Run: func(cmd *cobra.Command, args []string) {
+			conns := config.GetConnections()
+			w := tabwriter.NewWriter(os.Stdout, 4, 4, 3, ' ', 0)
+			fmt.Fprintf(w, "Name\tURL\tToken\n")
+			for _, c := range conns {
+				token = "****************"
+				if !viper.GetBool("neverShowTokens") {
+					if c.Token != "" {
+						if viper.GetBool("showTokens") {
+							token = c.Token
+						}
+					} else {
+						token = "<empty-token>"
+					}
+				}
+				fmt.Fprintf(w, "%s\t%s\t%s\n", c.Name, c.HubURL, token)
+			}
+			w.Flush()
+		},
+	}
+	listCmd.AddCommand(listConnsCmd)
+	var showTokens bool
+	listConnsCmd.PersistentFlags().BoolVarP(&showTokens, "show-tokens", "s", false, "Show tokens when listing connecitions.")
+	viper.BindPFlag("showTokens", listConnsCmd.PersistentFlags().Lookup("show-tokens"))
 
 	// Proxy Routes
 	var proxyCmd = &cobra.Command{

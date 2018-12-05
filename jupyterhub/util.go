@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/jdrivas/jhmon/config"
 	"github.com/spf13/viper"
 )
 
@@ -14,9 +15,10 @@ var (
 )
 
 func newRequest(method, command string) (*http.Request, error) {
-	hubURL := viper.GetString("hubURL")
-	token := viper.GetString("token")
+	hubURL := config.GetHubURL()
+	token := config.GetToken()
 	req, err := http.NewRequest(method, hubURL+command, nil)
+
 	if err == nil {
 		if viper.GetBool("debug") {
 			fmt.Printf("Using token authorization with token: %s\n", token)
@@ -70,6 +72,8 @@ func checkReturnCode(resp http.Response) (err error) {
 	err = nil
 	if resp.StatusCode >= 300 {
 		switch resp.StatusCode {
+		case http.StatusNotFound:
+			err = httpErrorMesg(resp, "Check for misbehaving connection, or missing token.")
 		case http.StatusUnauthorized:
 			err = httpErrorMesg(resp, "Check for valid token.")
 		case http.StatusForbidden:
