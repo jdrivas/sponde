@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/chzyer/readline"
-	"github.com/jdrivas/jhmon/config"
+	"github.com/jdrivas/sponde/config"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -97,7 +97,7 @@ func promptLoop(process func(string) error) (err error) {
 		hubURL := config.GetHubURL()
 		connName := config.GetConnectionName()
 		token = config.GetSafeToken()
-		prompt := fmt.Sprintf("%sjhmon [%s - %s %s]:%s ", pColor.title, connName, hubURL, token, pColor.reset)
+		prompt := fmt.Sprintf("%ssponde [%s - %s %s]:%s ", pColor.title, connName, hubURL, token, pColor.reset)
 		line, err := readline.Line(prompt)
 		if err == io.EOF {
 			moreCommands = false
@@ -116,7 +116,7 @@ func promptLoop(process func(string) error) (err error) {
 
 // DoInteractive sets up a readline loop that reads and executes comands.
 func DoInteractive() {
-	readline.SetHistoryPath("./.jhmon_history")
+	readline.SetHistoryPath("./.sponde_history")
 	xICommand := func(line string) (err error) { return doICommand(line) }
 	err := promptLoop(xICommand)
 	if err != nil {

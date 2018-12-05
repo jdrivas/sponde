@@ -2,7 +2,7 @@
 
 package main
 
-import "github.com/jdrivas/jhmon/cmd"
+import "github.com/jdrivas/sponde/cmd"
 
 func main() {
 	cmd.Execute()

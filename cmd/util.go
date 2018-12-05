@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	jh "github.com/jdrivas/jhmon/jupyterhub"
+	jh "github.com/jdrivas/sponde/jupyterhub"
 	"github.com/spf13/cobra"
 )
 

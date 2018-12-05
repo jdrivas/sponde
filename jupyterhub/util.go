@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/jdrivas/jhmon/config"
+	"github.com/jdrivas/sponde/config"
 	"github.com/spf13/viper"
 )
 

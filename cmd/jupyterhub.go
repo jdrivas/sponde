@@ -5,8 +5,8 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/jdrivas/jhmon/config"
-	jh "github.com/jdrivas/jhmon/jupyterhub"
+	"github.com/jdrivas/sponde/config"
+	jh "github.com/jdrivas/sponde/jupyterhub"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

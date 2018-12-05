@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jdrivas/jhmon/config"
+	"github.com/jdrivas/sponde/config"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -87,13 +87,13 @@ func init() {
 	// any root command flags set on the original command line should persist
 	// to each interactive command. They can  be explicitly overridden if needed.
 	rootCmd = &cobra.Command{
-		Use:   "jhmon",
+		Use:   "sponde",
 		Short: "Connect and report on a JupyterHub Hub.",
 		Long:  "A tool for managing a JuyterHub Hub through the JupyterHub API",
 	}
 
 	// Flags available to everyone.
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file location. (default is .jhmon.{yaml,json,toml}")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file location. (default is .sponde.{yaml,json,toml}")
 	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "connect to the JupyterhHub with this authorization token.")
 	rootCmd.PersistentFlags().StringVarP(&hubURL, "hub-url", "u", "",
 		fmt.Sprintf("connect to the JupyterhHub at this URL. (default is%s)", defaultHubURL))
@@ -121,7 +121,7 @@ func initConfig() {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
-		viper.SetConfigName("jhmon")
+		viper.SetConfigName("sponde")
 
 		// Find home directory.
 		home, err := homedir.Dir()
