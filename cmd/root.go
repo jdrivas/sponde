@@ -13,9 +13,9 @@ import (
 )
 
 var (
-	rootCmd, setCmd, listCmd, describeCmd, interactiveCmd *cobra.Command
-	cfgFile, tokenFlagVar, hubURLFlagVar                  string
-	verbose, debug                                        bool
+	rootCmd, setCmd, listCmd, describeCmd, createCmd, deleteCmd, interactiveCmd *cobra.Command
+	cfgFile, tokenFlagVar, hubURLFlagVar                                        string
+	verbose, debug                                                              bool
 )
 
 const defaultHubURL = "http://127.0.0.1:8081"
@@ -48,6 +48,18 @@ func buildRoot(mode runMode) {
 		Long:  "Sets the value or a list of values on an object or  applicaiton state.",
 	}
 
+	createCmd = &cobra.Command{
+		Use:   "create",
+		Short: "Create a resource on the hub.",
+		Long:  "Create an object on the JupyterHub hub.",
+	}
+
+	deleteCmd = &cobra.Command{
+		Use:   "delete",
+		Short: "Delete a resource on the hub.",
+		Long:  "Delete an object on the JupyterHub hub.",
+	}
+
 	listCmd = &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"get"},
@@ -61,11 +73,14 @@ func buildRoot(mode runMode) {
 		Long:  "Provides a longer, more complete  description of a collection object.",
 	}
 
-	// Other Commands.
+	// Add the commands to the rootCmd node.
 	if mode != interactive {
 		rootCmd.AddCommand(interactiveCmd)
 	}
+
 	rootCmd.AddCommand(setCmd)
+	rootCmd.AddCommand(createCmd)
+	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(describeCmd)
 	buildJupyterHub(mode)
@@ -149,7 +164,7 @@ func initConfig() {
 			fmt.Println("Using config file:", viper.ConfigFileUsed())
 		}
 	} else {
-		if viper.GetBool("verbose") {
+		if viper.GetBool("debug") {
 			fmt.Printf("Error loading config file: %s - %v\n", viper.ConfigFileUsed(), err)
 		}
 	}

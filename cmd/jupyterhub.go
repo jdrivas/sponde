@@ -168,6 +168,51 @@ The API, and so this command does not actually obtain the token itself.`,
 	listCmd.AddCommand(tokenCmd)
 	tokenCmd.SetUsageTemplate(userOneArgsTemplate)
 
+	// Groups
+	listCmd.AddCommand(&cobra.Command{
+		Use:   "groups",
+		Short: "Groups registered with the Hub.",
+		Long:  "Returns details the groups that are defined with this Hub.",
+		Run: func(cmd *cobra.Command, args []string) {
+			groups, err := jh.GetGroups()
+			if err == nil && len(groups) > 0 {
+				listGroups(groups)
+			} else {
+				if err != nil {
+					cmdError(err)
+				} else {
+					fmt.Println("There were no groups.")
+				}
+			}
+		},
+	})
+
+	createCmd.AddCommand(&cobra.Command{
+		Use:   "group",
+		Short: "Create a group on the JupyterHub hub.",
+		Long:  "Create a a new group on the JupyterHub hub. Requires a name as the first and only argument.",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			err := jh.CreateGroup(args[0])
+			if err != nil {
+				cmdError(err)
+			}
+		},
+	})
+
+	deleteCmd.AddCommand(&cobra.Command{
+		Use:   "group",
+		Short: "Delete a group on the JupyterHub hub.",
+		Long:  "Delete a group on the JupyterHub hub. Requires a name as the first and only argument.",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			err := jh.DeleteGroup(args[0])
+			if err != nil {
+				cmdError(err)
+			}
+		},
+	})
+
 	// Services
 	listCmd.AddCommand(&cobra.Command{
 		Use:   "services",

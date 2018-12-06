@@ -28,12 +28,19 @@ func newRequest(method, command string) (*http.Request, error) {
 	return req, err
 }
 
-func callJHGet(command string) (resp *http.Response, err error) {
+func doJHReq(method, command string) (resp *http.Response, err error) {
 	resp = nil
-	req, err := newRequest(http.MethodGet, command)
+	req, err := newRequest(method, command)
+	if err != nil {
+		panic(fmt.Sprintf("Couldn't generate HTTP request - %s\n", err.Error()))
+	}
 	resp, err = hubClient.Do(req)
 	if err == nil {
 		if viper.GetBool("verbose") {
+			fmt.Printf("HTTP: %s:%s\n", req.Method, req.URL)
+			fmt.Printf("Reponse: %s\n", resp.Status)
+		}
+		if viper.GetBool("debug") {
 			fmt.Printf("Made HTTP Request: %#v\n", req)
 			fmt.Printf("Response is: %#v\n", *resp)
 		}
@@ -41,13 +48,15 @@ func callJHGet(command string) (resp *http.Response, err error) {
 	return resp, err
 }
 
+// This eats the body in the response, but returns it in the
+//  obj passed in.
 func unmarshal(resp *http.Response, obj interface{}) (err error) {
 	body := []byte{}
 	if err == nil {
 		body, err = ioutil.ReadAll(resp.Body)
 		resp.Body.Close()
 	}
-	if viper.GetBool("debug") {
+	if viper.GetBool("verbose") {
 		fmt.Printf("Response body is: %s\n", body)
 	}
 	json.Unmarshal(body, &obj)
@@ -55,15 +64,37 @@ func unmarshal(resp *http.Response, obj interface{}) (err error) {
 }
 
 // Get makes the get call with the command, and returns the
-// results in the provided object, unmarshalled from the
-// JSON in the response.
+// response body in the provided object, unmarshalled from the
+// JSON in the response object. The returned response will not
+// have a body in it.
 func get(cmd string, result interface{}) (*http.Response, error) {
-	resp, err := callJHGet(cmd)
+	resp, err := doJHReq(http.MethodGet, cmd)
 	if err == nil {
 		if err = checkReturnCode(*resp); err == nil {
 			unmarshal(resp, result)
 		}
 	}
+	return resp, err
+}
+
+// If verbose is on, the body is no longer in the response
+func post(cmd string) (resp *http.Response, err error) {
+	resp, err = doJHReq(http.MethodPost, cmd)
+	if err == nil {
+		if viper.GetBool("verbose") {
+			if err = checkReturnCode(*resp); err == nil {
+				body, err1 := ioutil.ReadAll(resp.Body)
+				err = err1
+				resp.Body.Close()
+				fmt.Printf("Response body: %s\n", body)
+			}
+		}
+	}
+	return resp, err
+}
+
+func delete(cmd string) (resp *http.Response, err error) {
+	resp, err = doJHReq(http.MethodDelete, cmd)
 	return resp, err
 }
 
