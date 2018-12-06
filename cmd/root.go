@@ -55,16 +55,16 @@ func buildRoot(mode runMode) {
 	}
 
 	deleteCmd = &cobra.Command{
-		Use:   "delete",
+		Use:   "destroy",
 		Short: "Delete a resource on the hub.",
 		Long:  "Delete an object on the JupyterHub hub.",
 	}
 
 	listCmd = &cobra.Command{
-		Use:     "list",
-		Aliases: []string{"get"},
-		Short:   "Short description of a collection of objects.",
-		Long:    "Provides a short description of each element of a collection.",
+		Use: "list",
+		// Aliases: []string{""},
+		Short: "Short description of a collection of objects.",
+		Long:  "Provides a short description of each element of a collection.",
 	}
 
 	describeCmd = &cobra.Command{
@@ -160,7 +160,7 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		if viper.GetBool("verbose") {
+		if viper.GetBool("debug") {
 			fmt.Println("Using config file:", viper.ConfigFileUsed())
 		}
 	} else {

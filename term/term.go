@@ -5,6 +5,9 @@ import (
 )
 
 // Use this with github.com/juju/ansi term to get a TabWriter that works with color.
+
+type ColorSprintfFunc func(string, ...interface{}) string
+
 var (
 	// Text Formatting
 	Title    = color.New(color.FgBlack).SprintfFunc()
@@ -15,5 +18,6 @@ var (
 	Info      = color.New(color.FgBlack).SprintfFunc()
 	Highlight = color.New(color.FgGreen).SprintfFunc()
 	Success   = color.New(color.FgGreen).SprintfFunc()
+	Warn      = color.New(color.FgYellow).SprintfFunc()
 	Fail      = color.New(color.FgRed).SprintfFunc()
 )

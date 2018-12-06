@@ -7,6 +7,6 @@ type Version struct {
 
 // GetVersion returns the version of the JupyterHub from querying JupyterHub API.
 func GetVersion() (version Version, err error) {
-	_, err = get("/", &version)
+	_, err = getResult("/", &version)
 	return version, err
 }

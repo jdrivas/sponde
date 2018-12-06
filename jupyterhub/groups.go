@@ -12,16 +12,16 @@ type Group struct {
 
 // GetVersion returns the version of the JupyterHub from querying JupyterHub API.
 func GetGroups() (groups Groups, err error) {
-	_, err = get("/groups", &groups)
+	_, err = getResult("/groups", &groups)
 	return groups, err
 }
 
 func CreateGroup(name string) (err error) {
-	_, err = post(fmt.Sprintf("/groups/%s", name))
+	_, err = Post(fmt.Sprintf("/groups/%s", name))
 	return err
 }
 
 func DeleteGroup(name string) (err error) {
-	_, err = delete(fmt.Sprintf("/groups/%s", name))
+	_, err = Delete(fmt.Sprintf("/groups/%s", name))
 	return err
 }

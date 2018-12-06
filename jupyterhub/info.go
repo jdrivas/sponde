@@ -24,6 +24,6 @@ type Spawner struct {
 
 // GetInfo returns the Hub's system information.
 func GetInfo() (info Info, err error) {
-	_, err = get(fmt.Sprintf("/info"), &info)
+	_, err = getResult(fmt.Sprintf("/info"), &info)
 	return info, err
 }
