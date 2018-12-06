@@ -1,50 +1,19 @@
 package term
 
 import (
-	"fmt"
-
-	"github.com/mgutz/ansi"
+	"github.com/fatih/color"
 )
 
-// Holds semantic color definitions.
-type colorField struct {
-	null, reset, title, header, text, info, fail string
-}
-
+// Use this with github.com/juju/ansi term to get a TabWriter that works with color.
 var (
-	// Basic Colors
-	defaultColor = fmt.Sprintf(ansi.ColorCode("default"))
-	defaultEmph  = fmt.Sprintf(ansi.ColorCode("default+b"))
-	emphBlue     = fmt.Sprintf(ansi.ColorCode("blue+b"))
-	emphRed      = fmt.Sprintf(ansi.ColorCode("red+b"))
+	// Text Formatting
+	Title    = color.New(color.FgBlack).SprintfFunc()
+	SubTitle = color.New(color.FgHiBlack).SprintfFunc()
+	Text     = color.New(color.FgHiBlack).SprintfFunc()
 
-	// Default prompt colors
-	pColor = colorField{
-		null:  fmt.Sprintf("%s", "\x00\x00\x00\x00\x00\x00\x00"),
-		reset: fmt.Sprintf(ansi.ColorCode("reset")),
-		title: emphBlue,
-		info:  emphBlue,
-		fail:  emphRed,
-	}
-
-	// Default Display Colors
-	displayColor = colorField{
-		null:   fmt.Sprintf("%s", "\x00\x00\x00\x00\x00\x00\x00"),
-		reset:  fmt.Sprintf(ansi.ColorCode("reset")),
-		title:  defaultEmph,
-		header: defaultEmph,
-		text:   defaultColor,
-		info:   defaultColor,
-		fail:   emphRed,
-	}
+	// Semantic Formatting
+	Info      = color.New(color.FgBlack).SprintfFunc()
+	Highlight = color.New(color.FgGreen).SprintfFunc()
+	Success   = color.New(color.FgGreen).SprintfFunc()
+	Fail      = color.New(color.FgRed).SprintfFunc()
 )
-
-// Header returns a string wrapped in ANSI colors for header.
-func Header(s string) string {
-	return fmt.Sprintf("%s%s%s", displayColor.header, s, displayColor.reset)
-	// return s
-}
-
-func Text(s string) string {
-	return fmt.Sprintf("%s%s%s", displayColor.text, s, displayColor.reset)
-}

@@ -8,29 +8,14 @@ import (
 
 	"github.com/chzyer/readline"
 	"github.com/jdrivas/sponde/config"
-	"github.com/mgutz/ansi"
+	t "github.com/jdrivas/sponde/term"
+
+	// "github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-// Holds semantic color definitions.
-type promptColor struct {
-	null, reset, title, info, fail string
-}
-
 var (
-	// Handy designations
-	emphBlue = fmt.Sprintf(ansi.ColorCode("blue+b"))
-	emphRed  = fmt.Sprintf(ansi.ColorCode("red+b"))
-
-	// Default prompt colors
-	pColor = promptColor{
-		null:  fmt.Sprintf("%s", "\x00\x00\x00\x00\x00\x00\x00"),
-		reset: fmt.Sprintf(ansi.ColorCode("reset")),
-		title: emphBlue,
-		info:  emphBlue,
-		fail:  emphRed,
-	}
 
 	// Type exit instead of just control-d, Note: We actually os.exit() here.
 	// Which eans no post-processing of any kind including simply falling through
@@ -96,13 +81,17 @@ func promptLoop(process func(string) error) (err error) {
 	for moreCommands := true; moreCommands; {
 		hubURL := config.GetHubURL()
 		connName := config.GetConnectionName()
-		token = config.GetSafeToken()
-		prompt := fmt.Sprintf("%ssponde [%s - %s %s]:%s ", pColor.title, connName, hubURL, token, pColor.reset)
+		token := config.GetSafeToken(true, false)
+		spacer := ""
+		if token != "" {
+			spacer = " "
+		}
+		prompt := fmt.Sprintf("%s [%s %s]: ", t.Title("sponde"), t.Highlight(connName), t.SubTitle("%s%s%s", hubURL, spacer, token))
 		line, err := readline.Line(prompt)
 		if err == io.EOF {
 			moreCommands = false
 		} else if err != nil {
-			fmt.Printf("%sReadline Error: %s%s\n", pColor.fail, err, pColor.reset)
+			fmt.Printf("Readline Error: %s\n", t.Fail(err.Error()))
 		} else {
 			readline.AddHistory(line)
 			err = process(line)
@@ -120,6 +109,6 @@ func DoInteractive() {
 	xICommand := func(line string) (err error) { return doICommand(line) }
 	err := promptLoop(xICommand)
 	if err != nil {
-		fmt.Printf("%sError exiting prompter: %s%s\n", pColor.fail, err, pColor.reset)
+		fmt.Printf("Error exiting prompter: %s\n", t.Fail(err.Error()))
 	}
 }

@@ -16,22 +16,38 @@ type Connection struct {
 	Token  string
 }
 
-// For viper maps
+// YAML Variables which show up in viper, but controlled here.
 const (
-	hubURLKey = "huburl"
-	tokenKey  = "token"
+	hubURLKey                = "huburl"
+	tokenKey                 = "token"
+	neverShowTokensKey       = "neverShowTokens"
+	defaultConnectionNameKey = "defaultConnection"
+)
+
+// These ARE contorlled here, but require binding to a viper configureationand
+// so we share the name for the key here. The actual variable show be obtained
+// through here rather than in viper
+const (
+	showTokensKey = "showTokens"
+)
+
+const (
+	defaultConnectionName = "default"
 )
 
 // State referenced below, and only below.
+// Public access is through functions.
 var currentConnection *Connection
 var defaultConnection Connection
+var showTokens *bool
+var showTokensOnce bool
 
 // SetConnection sets the connection to the named connection.
 // Or returns an error if the named connection doesn't exist.
 // Connection is not set if there is an error, and whathever
 //  connection is current will continued to be used.
 func SetConnection(cName string) (err error) {
-	if cName == "default" {
+	if cName == defaultConnectionName {
 		setCurrentConnection(getDefaultConnection())
 	} else {
 		conn, ok := getConnectionByName(cName)
@@ -49,7 +65,6 @@ func GetConnectionName() string {
 	return getCurrentConnection().Name
 }
 
-// GetHubURL returns the connection HUBUrl
 func GetHubURL() string {
 	return getCurrentConnection().HubURL
 }
@@ -58,19 +73,28 @@ func GetToken() string {
 	return getCurrentConnection().Token
 }
 
-// GetToken returns  the connections Token
-func GetSafeToken() string {
-	return MakeSafeTokenString(getCurrentConnection())
+// GetToken returns the connections Token. Will
+// Return an empty string if useEmpty is true
+// otherwise returns something to display.
+func GetSafeToken(useEmpty, useShowTokensOnce bool) string {
+	return MakeSafeTokenString(getCurrentConnection(), useEmpty, useShowTokensOnce)
 }
 
-func MakeSafeTokenString(c Connection) string {
-	token := "*****"
-	if !viper.GetBool("neverShowToken") {
-		if viper.GetBool("showToken") {
+func MakeSafeTokenString(c Connection, useEmpty bool, useShowTokensOnce bool) (token string) {
+	token = c.Token
+	if c.Token == "" {
+		token = "<enpty-token>"
+	} else {
+		token = "****"
+		if useEmpty {
+			token = ""
+		}
+		show := GetShowTokens()
+		if useShowTokensOnce {
+			show = show || getShowTokensOnce()
+		}
+		if !viper.GetBool(neverShowTokensKey) && show {
 			token = c.Token
-			if token == "" {
-				token = "<empty-token>"
-			}
 		}
 	}
 	return token
@@ -92,13 +116,13 @@ func GetConnectionNames() []string {
 	cons := []string{}
 	noDefault := true
 	for k := range consMap {
-		if k == "default" {
+		if k == defaultConnectionName {
 			noDefault = false
 		}
 		cons = append(cons, k)
 	}
 	if noDefault {
-		cons = append(cons, "default")
+		cons = append(cons, defaultConnectionName)
 	}
 	return cons
 }
@@ -107,7 +131,7 @@ func GetConnections() []Connection {
 	consMap := getConnectionMap()
 	cons := []Connection{}
 	for k, v := range consMap {
-		if k != "default" {
+		if k != defaultConnectionName {
 			hubURL, token := getMapValues(v)
 			c := Connection{k, hubURL, token}
 			cons = append(cons, c)
@@ -159,12 +183,35 @@ func getConnectionMap() map[string]interface{} {
 	return viper.GetStringMap("connections")
 }
 
+//
+// Show Tokens
+//
+
+func ShowTokensOnce() {
+	showTokensOnce = true
+}
+
+func ResetShowTokensOnce() {
+	showTokensOnce = false
+}
+
+func getShowTokensOnce() bool {
+	return showTokensOnce
+}
+
+func GetShowTokens() bool {
+	return *showTokens
+}
+
+func SetShowTokens(st bool) {
+	*showTokens = st
+}
+
 // InitConnections sets up the default connection, sets the current Connection to default,
-// and should be called whenever the Viper config file gets
-// reloaded.
+// initializes the ShowTokens state, and should be called whenever the Viper config file gets reloaded.
 // Provide a defaultHubURL, if no is provided, the http://127.0.0.1:8081 will be used.
 func InitConnections(defaultHubURL string) {
-	conn, ok := getConnectionByName("default")
+	conn, ok := getConnectionByName(defaultConnectionName)
 	if ok {
 		setDefaultConnection(conn)
 	} else {
@@ -172,7 +219,7 @@ func InitConnections(defaultHubURL string) {
 		hubURL := defaultHubURL
 		token := ""
 
-		defaultName := viper.GetString("defaultConnection")
+		defaultName := viper.GetString(defaultConnectionNameKey)
 		if defaultName != "" {
 			dnc, ok := getConnectionByName(defaultName)
 			if ok {
@@ -181,12 +228,18 @@ func InitConnections(defaultHubURL string) {
 			}
 		}
 
-		conn = Connection{"default", hubURL, token}
+		conn = Connection{defaultConnectionName, hubURL, token}
 		setDefaultConnection(conn)
 	}
-	// Only set if it's not areadly been set.
+	// Variables which we only set if not already set..
 	// We want it to be durable when in interactive
 	if currentConnection == nil {
 		setCurrentConnection(conn)
 	}
+
+	if showTokens == nil {
+		showTokens = new(bool)
+		SetShowTokens(viper.GetBool(showTokensKey))
+	}
+
 }

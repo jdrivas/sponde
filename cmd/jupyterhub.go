@@ -3,17 +3,18 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"text/tabwriter"
 
 	"github.com/jdrivas/sponde/config"
 	jh "github.com/jdrivas/sponde/jupyterhub"
+	t "github.com/jdrivas/sponde/term"
+	"github.com/juju/ansiterm"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-func cmdError(e error) {
-	fmt.Printf("Error: %s\n", e)
-}
+var listConnsCmd *cobra.Command
+var showTokens, showTokensOnce bool
+
+const showTokensOnceFlagKey = "show-tokens"
 
 func buildJupyterHub(mode runMode) {
 
@@ -25,7 +26,7 @@ func buildJupyterHub(mode runMode) {
 		Run: func(cmd *cobra.Command, args []string) {
 			version, err := jh.GetVersion()
 			if err == nil {
-				version.Print()
+				PrintVersion(version)
 			} else {
 				cmdError(err)
 			}
@@ -39,7 +40,7 @@ func buildJupyterHub(mode runMode) {
 		Run: func(cmd *cobra.Command, args []string) {
 			info, err := jh.GetInfo()
 			if err == nil {
-				info.Print()
+				PrintInfo(info)
 			} else {
 				cmdError(err)
 			}
@@ -61,26 +62,49 @@ func buildJupyterHub(mode runMode) {
 		},
 	})
 
-	var listConnsCmd = &cobra.Command{
+	listConnsCmd = &cobra.Command{
 		Use:     "connections",
 		Aliases: []string{"conn", "con", "conns", "cons", "connection"},
 		Short:   "Available connections to a JupyterHub hub.",
 		Long:    "List all o fthe aviallable JupyterHub hub connections.",
 		Run: func(cmd *cobra.Command, args []string) {
 			conns := config.GetConnections()
-			w := tabwriter.NewWriter(os.Stdout, 4, 4, 3, ' ', 0)
-			fmt.Fprintf(w, "Name\tURL\tToken\n")
+			currentName := config.GetConnectionName()
+			w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
+			fmt.Fprintf(w, "%s\n", t.Title("\tName\tURL\tToken"))
 			for _, c := range conns {
-				token = config.MakeSafeTokenString(c)
-				fmt.Fprintf(w, "%s\t%s\t%s\n", c.Name, c.HubURL, token)
+				name := t.Text(c.Name)
+				current := ""
+				if c.Name == currentName {
+					name = t.Highlight("%s", c.Name)
+					current = t.Highlight("%s", "*")
+				}
+				token := config.MakeSafeTokenString(c, false, true)
+				fmt.Fprintf(w, "%s\t%s\t%s\n", current, name, t.Text("%s\t%s", c.HubURL, token))
 			}
 			w.Flush()
 		},
 	}
 	listCmd.AddCommand(listConnsCmd)
-	var showTokens bool
-	listConnsCmd.PersistentFlags().BoolVarP(&showTokens, "show-tokens", "s", false, "Show tokens when listing connecitions.")
-	viper.BindPFlag("showTokens", listConnsCmd.PersistentFlags().Lookup("show-tokens"))
+	// This flag should only work on the single command
+	listConnsCmd.PersistentFlags().BoolVarP(&showTokensOnce, showTokensOnceFlagKey, "s", false, "Show tokens when listing connecitions.")
+
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "show-tokens",
+		Short: "Toggle display of tokens",
+		Long:  "Toggles displapy of tokens in application. This will have no effect if the configuration variable neverShowTokens has been set.",
+		Run: func(cmd *cobra.Command, args []string) {
+			config.SetShowTokens(!config.GetShowTokens())
+			if config.GetShowTokens() {
+				fmt.Printf("Showing tokens on.\n")
+			} else {
+				fmt.Printf("Showing tokens off.\n")
+			}
+		},
+	})
+	// To make show-tokens command, and the underlying config file variables
+	// durable on commands.
+	cobra.OnInitialize(initShowTokensOnce)
 
 	// Proxy Routes
 	var proxyCmd = &cobra.Command{
@@ -94,7 +118,7 @@ func buildJupyterHub(mode runMode) {
 		Run: func(cmd *cobra.Command, args []string) {
 			routes, err := jh.GetProxy()
 			if err == nil {
-				routes.Print()
+				ListRoutes(routes)
 			} else {
 				cmdError(err)
 			}
@@ -109,7 +133,7 @@ func buildJupyterHub(mode runMode) {
 		Short: "Users accessing the hub.",
 		Long: `Returns a list of users from the connected Hub, 
 or if users are specified, data on those users`,
-		Run: doUsers(jh.ListUsers, cmdError),
+		Run: doUsers(listUsers, cmdError),
 	}
 	listCmd.AddCommand(listUsersCmd)
 	listUsersCmd.SetUsageTemplate(userArgsTemplate)
@@ -119,7 +143,7 @@ or if users are specified, data on those users`,
 		Short: "Hub users.",
 		Long: `Returns a longer description of hub users.
 If no user-id is provided then all Hub users are described.`,
-		Run: doUsers(jh.DescribeUsers, cmdError),
+		Run: doUsers(describeUsers, cmdError),
 	}
 	describeCmd.AddCommand(describeUsersCmd)
 	describeUsersCmd.SetUsageTemplate(userArgsTemplate)
@@ -131,12 +155,13 @@ If no user-id is provided then all Hub users are described.`,
 		Aliases: []string{"token"},
 		Short:   "Users security tokens",
 		Long: `Returns a list of a Hub user's seurity tokens.
-This must be called with at least one user-id, but  may be called with a list.`,
+This must be called with at least one user-id, but  may be called with a list.
+The API, and so this command does not actually obtain the token itself.`,
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			tokens, err := jh.GetTokens(args[0])
 			if err == nil {
-				tokens.Print()
+				listTokens(tokens)
 			}
 		},
 	}
@@ -151,7 +176,7 @@ This must be called with at least one user-id, but  may be called with a list.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			services, err := jh.GetServices()
 			if err == nil && len(services) > 0 {
-				jh.ListServices(services)
+				listServices(services)
 			} else {
 				if err != nil {
 					cmdError(err)
@@ -162,6 +187,22 @@ This must be called with at least one user-id, but  may be called with a list.`,
 		},
 	})
 
+}
+
+// var prevShowFlagSet = false
+
+// // Yes this is goofy.
+// // We want the flag to only effect once, not permentaly
+// // set the state.
+// // But we want the state to be durable if was set by command (show-tokens)
+// // it was set by commands.
+// // TODO: There are some patterns here to extract for next time.
+func initShowTokensOnce() {
+	if showTokensOnce {
+		config.ShowTokensOnce()
+	} else {
+		config.ResetShowTokensOnce()
+	}
 }
 
 // For use when the command can take, but doesn't have to, an arbitrary number of

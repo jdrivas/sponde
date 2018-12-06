@@ -14,7 +14,7 @@ import (
 
 var (
 	rootCmd, setCmd, listCmd, describeCmd, interactiveCmd *cobra.Command
-	cfgFile, token, hubURL                                string
+	cfgFile, tokenFlagVar, hubURLFlagVar                  string
 	verbose, debug                                        bool
 )
 
@@ -94,9 +94,9 @@ func init() {
 
 	// Flags available to everyone.
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file location. (default is .sponde.{yaml,json,toml}")
-	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "connect to the JupyterhHub with this authorization token.")
-	rootCmd.PersistentFlags().StringVarP(&hubURL, "hub-url", "u", "",
-		fmt.Sprintf("connect to the JupyterhHub at this URL. (default is%s)", defaultHubURL))
+	rootCmd.PersistentFlags().StringVarP(&tokenFlagVar, "token", "t", "", "connect to the JupyterhHub with this authorization token.")
+	rootCmd.PersistentFlags().StringVarP(&hubURLFlagVar, "hub-url", "u", "",
+		fmt.Sprintf("connect to the JupyterhHub at this URL. (default is %s)", defaultHubURL))
 
 	// viper.BindPFlag("token", rootCmd.PersistentFlags().Lookup("token"))
 	// viper.BindPFlag("hubURL", rootCmd.PersistentFlags().Lookup("hub-url"))
@@ -113,10 +113,16 @@ func init() {
 
 	// Called before any command, and so in interactive mode, each time a command is executed.
 	cobra.OnInitialize(initConfig)
+
+	// // Let's just read this in once at
+	// initConfig()
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
+	if viper.GetBool("debug") {
+		fmt.Printf("Reading config file.\n")
+	}
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
@@ -148,17 +154,17 @@ func initConfig() {
 		}
 	}
 
-	// Set up connections from config.
+	// Set up config managed durable variables
 	initConnections()
-
 }
 
 func initConnections() {
+
 	config.InitConnections(defaultHubURL)
 	if rootCmd.PersistentFlags().Lookup("hub-url").Changed {
-		config.UpdateDefaultHubURL(hubURL)
+		config.UpdateDefaultHubURL(hubURLFlagVar)
 	}
 	if rootCmd.PersistentFlags().Lookup("token").Changed {
-		config.UpdateDefaultToken(token)
+		config.UpdateDefaultToken(tokenFlagVar)
 	}
 }

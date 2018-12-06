@@ -1,9 +1,5 @@
 package jupyterhub
 
-import (
-	"fmt"
-)
-
 // Version is the version nof the running JupyterHub
 type Version struct {
 	Version string `json:"version"`
@@ -16,8 +12,4 @@ func GetVersion() (version Version, err error) {
 		unmarshal(resp, &version)
 	}
 	return version, err
-}
-
-func (version *Version) Print() {
-	fmt.Printf("JupyterHub Version: %s\n", version.Version)
 }

@@ -3,8 +3,6 @@ package jupyterhub
 import (
 	"fmt"
 	"net/http"
-	"os"
-	"text/tabwriter"
 )
 
 type UserList []User
@@ -70,47 +68,30 @@ func GetAllUsers() (users UserList, err error) {
 	return users, err
 }
 
-// ListUsers prints a consice one line at a time reprsentation of
-// users.
-func ListUsers(users UserList) {
-	w := tabwriter.NewWriter(os.Stdout, 4, 4, 3, ' ', 0)
-	fmt.Fprintf(w, "Name\tAdmin\tCreated\tServer\tLast\n")
-	for _, u := range users {
-		fmt.Fprintf(w, "%s\t%t\t%s\t%s\t%s\n", u.Name, u.Admin, u.Created, u.ServerURL, u.LastActivity)
-	}
-	w.Flush()
+type Tokens struct {
+	APITokens   []APIToken   `json:"api_tokens"`
+	OAuthTokens []OAuthToken `json:"oauth_tokens"`
 }
 
-// Descrive users prints all of the infomration there is about each user.
-func DescribeUsers(users UserList) {
-	for _, u := range users {
-		w := tabwriter.NewWriter(os.Stdout, 4, 4, 3, ' ', 0)
-		fmt.Fprintf(w, "Name\tKind\tAdmin\tServer\n")
-		fmt.Fprintf(w, "%s\t%s\t%t\t%s\n", u.Name, u.Kind, u.Admin, u.ServerURL)
-		w.Flush()
-		fmt.Println()
-		w = tabwriter.NewWriter(os.Stdout, 4, 4, 3, ' ', 0)
-		fmt.Fprintf(w, "Created\tLast Activity\tPending\n")
-		pending := "<empty>"
-		if u.Pending != "" {
-			pending = u.Pending
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n", u.Created, u.LastActivity, pending)
-		w.Flush()
-		fmt.Printf("\nServers\n")
-		for _, s := range u.Servers {
-			w = tabwriter.NewWriter(os.Stdout, 4, 4, 3, ' ', 0)
-			fmt.Fprintf(w, "Name\tReady\tPending\tStarted\tLast Activity\n")
-			name := "<empty>"
-			if s.Name != "" {
-				name = s.Name
-			}
-			pending := "<empty>"
-			if s.Pending != "" {
-				pending = u.Pending
-			}
-			fmt.Fprintf(w, "%s\t%t\t%s\t%s\t%s\n", name, s.Ready, pending, s.Started, s.LastActivity)
-			w.Flush()
-		}
-	}
+type APIToken struct {
+	ID           string `json:"id"`
+	Kind         string `json:"kind"`
+	User         string `json:"user"`
+	Created      string `json:"created"`
+	LastActivity string `json:"last_activity"`
+	Note         string `json:"note"`
+}
+
+type OAuthToken struct {
+	ID           string `json:"id"`
+	Kind         string `json:"kind"`
+	User         string `json:"user"`
+	Created      string `json:"created"`
+	LastActivity string `json:"last_activity"`
+	OAuthClient  string `json:"oauth_client"`
+}
+
+func GetTokens(username string) (token Tokens, err error) {
+	_, err = get(fmt.Sprintf("/users/%s/tokens", username), &token)
+	return token, err
 }
