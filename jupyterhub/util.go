@@ -148,14 +148,26 @@ func sendReq(req *http.Request, result interface{}) (resp *http.Response, err er
 //  obj passed in.
 func unmarshal(resp *http.Response, obj interface{}) (err error) {
 	var body []byte
+	body, err = ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
 	if err == nil {
-		body, err = ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
+
+		if viper.GetBool("debug") {
+			prettyJSON := bytes.Buffer{}
+			indentErr := json.Indent(&prettyJSON, body, "", " ")
+			if indentErr == nil {
+				fmt.Printf("%s %s\n", t.Title("Response body is:"), t.Text("%s\n", prettyJSON))
+			} else {
+				fmt.Printf("%s\n", t.Fail("Error indenting JSON - %s", indentErr.Error()))
+				fmt.Printf("%s %s\n", t.Title("Body:"), t.Text(string(body)))
+			}
+		}
+
+		json.Unmarshal(body, &obj)
+		if viper.GetBool("debug") {
+			fmt.Printf("%s %s\n", t.Title("Unmarshaled object: "), t.Text("%#v", obj))
+		}
 	}
-	if viper.GetBool("debug") {
-		fmt.Printf("Response body is: %s\n", body)
-	}
-	json.Unmarshal(body, &obj)
 	return err
 }
 
