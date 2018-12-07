@@ -35,7 +35,7 @@ type StateValues struct {
 
 // GetUser retruns a users information
 func GetUser(username string) (user User, err error) {
-	_, err = getResult(fmt.Sprintf("%s%s", "/users", username), &user)
+	_, err = Get(fmt.Sprintf("%s%s", "/users", username), &user)
 	return user, err
 }
 
@@ -47,7 +47,7 @@ func GetUsers(usernames []string) (users UserList, badUsers []string, err error)
 	for _, un := range usernames {
 		user := new(User)
 		var resp *http.Response
-		resp, err = getResult(fmt.Sprintf("%s%s", "/users/", un), user)
+		resp, err = Get(fmt.Sprintf("%s%s", "/users/", un), user)
 		if err == nil {
 			users = append(users, *user)
 		} else {
@@ -64,7 +64,7 @@ func GetUsers(usernames []string) (users UserList, badUsers []string, err error)
 
 // GetAllUsers returns a list of logged in JupyterHub users.
 func GetAllUsers() (users UserList, err error) {
-	_, err = getResult("/users", &users)
+	_, err = Get("/users", &users)
 	return users, err
 }
 
@@ -92,6 +92,6 @@ type OAuthToken struct {
 }
 
 func GetTokens(username string) (token Tokens, err error) {
-	_, err = getResult(fmt.Sprintf("/users/%s/tokens", username), &token)
+	_, err = Get(fmt.Sprintf("/users/%s/tokens", username), &token)
 	return token, err
 }

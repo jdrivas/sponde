@@ -27,7 +27,7 @@ func buildJupyterHub(mode runMode) {
 		<method> is an HTTP verb (e.g. "GET")`,
 		Args: cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
-			doHTTPResponse(jh.Send(args[0], args[1]))
+			doHTTPResponse(jh.Send(args[0], args[1], nil))
 		},
 	})
 
@@ -37,7 +37,7 @@ func buildJupyterHub(mode runMode) {
 		Long:  "Sends an HTTP GET <arg> to the Jupyterhub hub.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			doHTTPResponse(jh.Get(args[0]))
+			doHTTPResponse(jh.Get(args[0], nil))
 		},
 	})
 
@@ -47,7 +47,7 @@ func buildJupyterHub(mode runMode) {
 		Long:  "Sends an HTTP POST <arg> to the Jupyterhub hub.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			doHTTPResponse(jh.Post(args[0], nil))
+			doHTTPResponse(jh.Post(args[0], nil, nil))
 		},
 	})
 
@@ -57,7 +57,7 @@ func buildJupyterHub(mode runMode) {
 		Long:  "Sends an HTTP POST <arg> to the Jupyterhub hub.",
 		Args:  cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
-			doHTTPResponse(jh.PostContent(args[0], strings.Join(args[1:], " ")))
+			doHTTPResponse(jh.SendJSONString("POST", args[0], strings.Join(args[1:], " "), nil))
 		},
 	})
 
@@ -67,7 +67,7 @@ func buildJupyterHub(mode runMode) {
 		Long:  "Sends an HTTP DELETE <arg> to the Jupyterhub hub.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			doHTTPResponse(jh.Delete(args[0], nil))
+			doHTTPResponse(jh.Delete(args[0], nil, nil))
 		},
 	})
 
@@ -93,7 +93,9 @@ func buildJupyterHub(mode runMode) {
 		Run: func(cmd *cobra.Command, args []string) {
 			info, err := jh.GetInfo()
 			if err == nil {
-				PrintInfo(info)
+				if err == nil {
+					PrintInfo(info)
+				}
 			} else {
 				cmdError(err)
 			}
