@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/jdrivas/sponde/config"
 	jh "github.com/jdrivas/sponde/jupyterhub"
@@ -19,7 +20,7 @@ const showTokensOnceFlagKey = "show-tokens"
 func buildJupyterHub(mode runMode) {
 
 	// HTTP Util
-	rootCmd.AddCommand(&cobra.Command{
+	httpCmd.AddCommand(&cobra.Command{
 		Use:   "send",
 		Short: "HTTP <method> <arg> to hub.",
 		Long: `Sends an HTTP <method> <arg> to the Jupyterhub hub.
@@ -30,7 +31,7 @@ func buildJupyterHub(mode runMode) {
 		},
 	})
 
-	rootCmd.AddCommand(&cobra.Command{
+	httpCmd.AddCommand(&cobra.Command{
 		Use:   "get",
 		Short: "HTTP GET <arg> to hub.",
 		Long:  "Sends an HTTP GET <arg> to the Jupyterhub hub.",
@@ -40,23 +41,33 @@ func buildJupyterHub(mode runMode) {
 		},
 	})
 
-	rootCmd.AddCommand(&cobra.Command{
+	httpCmd.AddCommand(&cobra.Command{
 		Use:   "post",
 		Short: "HTTP POST <arg> to hub.",
 		Long:  "Sends an HTTP POST <arg> to the Jupyterhub hub.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			doHTTPResponse(jh.Post(args[0]))
+			doHTTPResponse(jh.Post(args[0], nil))
 		},
 	})
 
-	rootCmd.AddCommand(&cobra.Command{
+	httpCmd.AddCommand(&cobra.Command{
+		Use:   "post-content",
+		Short: "HTTP POST <arg> to hub.",
+		Long:  "Sends an HTTP POST <arg> to the Jupyterhub hub.",
+		Args:  cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			doHTTPResponse(jh.PostContent(args[0], strings.Join(args[1:], " ")))
+		},
+	})
+
+	httpCmd.AddCommand(&cobra.Command{
 		Use:   "delete",
 		Short: "HTTP DELETE <arg> to hub.",
 		Long:  "Sends an HTTP DELETE <arg> to the Jupyterhub hub.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			doHTTPResponse(jh.Delete(args[0]))
+			doHTTPResponse(jh.Delete(args[0], nil))
 		},
 	})
 

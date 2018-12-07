@@ -35,7 +35,7 @@ type StateValues struct {
 
 // GetUser retruns a users information
 func GetUser(username string) (user User, err error) {
-	_, err = getResult(fmt.Sprintf("%s%s", "/users/", username), &user)
+	_, err = getResult(fmt.Sprintf("%s%s", "/users", username), &user)
 	return user, err
 }
 

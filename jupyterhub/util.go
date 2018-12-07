@@ -1,12 +1,15 @@
 package jupyterhub
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/jdrivas/sponde/config"
+	t "github.com/jdrivas/sponde/term"
 	"github.com/spf13/viper"
 )
 
@@ -14,35 +17,57 @@ var (
 	hubClient = &http.Client{}
 )
 
-func newRequest(method, command string) (*http.Request, error) {
-	hubURL := config.GetHubURL()
-	token := config.GetToken()
-	req, err := http.NewRequest(method, hubURL+command, nil)
-
-	if err == nil {
-		if viper.GetBool("debug") {
-			fmt.Printf("Using token authorization with token: %s\n", token)
-		}
-		req.Header.Add("Authorization", fmt.Sprintf("token %s", token))
-	}
-	return req, err
+func jhAPIURL(cmd string) string {
+	return fmt.Sprintf("%s%s", config.GetHubURL(), cmd)
 }
 
-func Send(method, command string) (resp *http.Response, err error) {
-	resp = nil
-	req, err := newRequest(method, command)
-	if err != nil {
-		panic(fmt.Sprintf("Couldn't generate HTTP request - %s\n", err.Error()))
+func jhReq(method, cmd string, body io.Reader) (*http.Request, error) {
+	return http.NewRequest(method, jhAPIURL(cmd), body)
+}
+
+func newRequest(method, cmd string, body io.Reader) *http.Request {
+	req, err := jhReq(method, cmd, body)
+	if err == nil {
+		if viper.GetBool("debug") {
+			fmt.Printf("Using token authorization with token: %s\n", config.GetSafeToken(false, true))
+		}
+		req.Header.Add("Authorization", fmt.Sprintf("token %s", config.GetToken()))
+	} else {
+		panic(fmt.Sprintf("Coulnd't generate HTTP request - $s\n", err.Error()))
 	}
+
+	return req
+}
+
+func sendReq(req *http.Request) (resp *http.Response, err error) {
+	resp = nil
 	resp, err = hubClient.Do(req)
 	if err == nil {
-		if viper.GetBool("verbose") {
+		if viper.GetBool("debug") {
 			fmt.Printf("HTTP: %s:%s\n", req.Method, req.URL)
 			fmt.Printf("Reponse: %s\n", resp.Status)
 		}
 		if viper.GetBool("debug") {
-			fmt.Printf("Made HTTP Request: %#v\n", req)
-			fmt.Printf("Response is: %#v\n", *resp)
+			fmt.Printf("%s %s\n", t.Title("Made HTTP Request:"), t.Text("%#v\n", req))
+			fmt.Println("")
+			fmt.Printf("%s %s\n", t.Title("Response:"), t.Text("%#v\n", *resp))
+		}
+	}
+	return resp, err
+}
+
+// getResult makes the get call with the command, and returns the
+// response body in the provided object, unmarshalled from the
+// JSON in the response object. The returned response will not
+// have a body in it.
+func getResult(cmd string, result interface{}) (*http.Response, error) {
+	resp, err := Get(cmd)
+	if err == nil {
+		if err = checkReturnCode(*resp); err == nil {
+			unmarshal(resp, result)
+		}
+		if viper.GetBool("debug") {
+			fmt.Printf("Unmashaled result: %#v\n", result)
 		}
 	}
 	return resp, err
@@ -56,53 +81,11 @@ func unmarshal(resp *http.Response, obj interface{}) (err error) {
 		body, err = ioutil.ReadAll(resp.Body)
 		resp.Body.Close()
 	}
-	if viper.GetBool("verbose") {
+	if viper.GetBool("debug") {
 		fmt.Printf("Response body is: %s\n", body)
 	}
 	json.Unmarshal(body, &obj)
 	return err
-}
-
-// getResult makes the get call with the command, and returns the
-// response body in the provided object, unmarshalled from the
-// JSON in the response object. The returned response will not
-// have a body in it.
-func getResult(cmd string, result interface{}) (*http.Response, error) {
-	resp, err := Send(http.MethodGet, cmd)
-	if err == nil {
-		if err = checkReturnCode(*resp); err == nil {
-			unmarshal(resp, result)
-		}
-		if viper.GetBool("verbose") {
-			fmt.Printf("Unmashaled result: %#v\n", result)
-		}
-	}
-	return resp, err
-}
-
-func Get(cmd string) (resp *http.Response, err error) {
-	return Send(http.MethodGet, cmd)
-}
-
-// If verbose is on, the body is no longer in the response
-func Post(cmd string) (resp *http.Response, err error) {
-	resp, err = Send(http.MethodPost, cmd)
-	if err == nil {
-		if viper.GetBool("verbose") {
-			if err = checkReturnCode(*resp); err == nil {
-				body, err1 := ioutil.ReadAll(resp.Body)
-				err = err1
-				resp.Body.Close()
-				fmt.Printf("Response body: %s\n", body)
-			}
-		}
-	}
-	return resp, err
-}
-
-func Delete(cmd string) (resp *http.Response, err error) {
-	resp, err = Send(http.MethodDelete, cmd)
-	return resp, err
 }
 
 // Returns an "informative" error if not 200
@@ -130,4 +113,71 @@ func httpErrorMesg(resp http.Response, message string) error {
 
 func httpError(resp http.Response) error {
 	return httpErrorMesg(resp, "")
+}
+
+//
+// PUBLIC API
+//
+
+func Send(method, cmd string) (resp *http.Response, err error) {
+	var req *http.Request
+	req = newRequest(method, cmd, nil)
+	resp, err = hubClient.Do(req)
+	return resp, err
+}
+
+func Get(cmd string) (resp *http.Response, err error) {
+	req := newRequest(http.MethodGet, cmd, nil)
+	return sendReq(req)
+}
+
+// func PostContent(cmd string, content interface{}) (resp *http.Response, err error) {
+func PostContent(cmd string, content string) (resp *http.Response, err error) {
+	jsonBytes := []byte(content)
+	// c := content.(string)
+	// ca := []string{c}
+	// jsonBytes, err := json.Marshal(ca)
+	if viper.GetBool("debug") {
+		fmt.Printf("JSON string is: %s\n", jsonBytes)
+	}
+	// if err == nil {
+	// 	fmt.Printf("POST error marshaling JSON %s\n", err)
+	// 	fmt.Print("Tried to Marshal object: %#v\n", content)
+	// }
+	req := newRequest(http.MethodPost, cmd, bytes.NewBuffer(jsonBytes))
+	req.Header.Set("Content-Type", "application/json")
+	// bodyReader, readErr := req.GetBody()
+	// if readErr == nil {
+	// 	b, readErr := ioutil.ReadAll(bodyReader)
+	// 	if readErr == nil {
+	// 		fmt.Printf("Body of REQ looks like: %s\n", b)
+	// 	} else {
+	// 		fmt.Printf("Some error in reading request body\n")
+	// 	}
+	// }
+	resp, err = sendReq(req)
+	return resp, err
+}
+
+// If verbose is on, the body is no longer in the response
+func Post(cmd string, content interface{}) (resp *http.Response, err error) {
+	req := newRequest(http.MethodPost, cmd, nil)
+	resp, err = sendReq(req)
+	if err == nil {
+		if viper.GetBool("debug") {
+			if err = checkReturnCode(*resp); err == nil {
+				body, err1 := ioutil.ReadAll(resp.Body)
+				err = err1
+				resp.Body.Close()
+				fmt.Printf("Response body: %s\n", body)
+			}
+		}
+	}
+	return resp, err
+}
+
+func Delete(cmd string, content interface{}) (resp *http.Response, err error) {
+	req := newRequest(http.MethodDelete, cmd, nil)
+	resp, err = sendReq(req)
+	return resp, err
 }

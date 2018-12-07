@@ -28,7 +28,7 @@ func checkForEmptyString(s string) (r string) {
 func doHTTPResponse(resp *http.Response, err error) {
 	if err == nil {
 
-		fmt.Printf("HTTP GET:%s\n", resp.Request.URL)
+		fmt.Printf("HTTP %s:%s\n", resp.Request.Method, resp.Request.URL)
 
 		w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
 		fmt.Fprintf(w, "%s\n", t.Title("Status\tLength\tEncoding\tUncompressed"))
@@ -59,11 +59,11 @@ func doHTTPResponse(resp *http.Response, err error) {
 					if err == nil {
 						fmt.Printf("%s\n%s\n", t.Title("Body:"), t.Text("%s", string(prettyJson.Bytes())))
 					} else {
-						cmdError(err)
-						fmt.Printf("%s %s\n", t.Title("Body:"), t.Text(string(body)))
+						fmt.Printf("%s\n", t.Fail("JSON Error: %s", err))
 					}
-				} else {
-					fmt.Printf("%s %s\n", t.Title("Body:"), t.Text(string(body)))
+				}
+				if viper.GetBool("debug") {
+					fmt.Printf("%s\n%s\n", t.Title("Body:"), t.Text("%s", string(body)))
 				}
 			}
 		}

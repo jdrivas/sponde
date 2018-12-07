@@ -13,9 +13,10 @@ import (
 )
 
 var (
-	rootCmd, setCmd, listCmd, describeCmd, createCmd, deleteCmd, interactiveCmd *cobra.Command
-	cfgFile, tokenFlagVar, hubURLFlagVar                                        string
-	verbose, debug                                                              bool
+	rootCmd, setCmd, httpCmd, interactiveCmd   *cobra.Command
+	listCmd, describeCmd, createCmd, deleteCmd *cobra.Command
+	cfgFile, tokenFlagVar, hubURLFlagVar       string
+	verbose, debug                             bool
 )
 
 const defaultHubURL = "http://127.0.0.1:8081"
@@ -47,18 +48,21 @@ func buildRoot(mode runMode) {
 		Short: "Set a value or values.",
 		Long:  "Sets the value or a list of values on an object or  applicaiton state.",
 	}
+	rootCmd.AddCommand(setCmd)
 
 	createCmd = &cobra.Command{
 		Use:   "create",
 		Short: "Create a resource on the hub.",
 		Long:  "Create an object on the JupyterHub hub.",
 	}
+	rootCmd.AddCommand(createCmd)
 
 	deleteCmd = &cobra.Command{
-		Use:   "destroy",
+		Use:   "delete",
 		Short: "Delete a resource on the hub.",
 		Long:  "Delete an object on the JupyterHub hub.",
 	}
+	rootCmd.AddCommand(deleteCmd)
 
 	listCmd = &cobra.Command{
 		Use: "list",
@@ -66,23 +70,27 @@ func buildRoot(mode runMode) {
 		Short: "Short description of a collection of objects.",
 		Long:  "Provides a short description of each element of a collection.",
 	}
+	rootCmd.AddCommand(listCmd)
 
 	describeCmd = &cobra.Command{
 		Use:   "describe",
 		Short: "Longer  description of a a collection of objects.",
 		Long:  "Provides a longer, more complete  description of a collection object.",
 	}
+	rootCmd.AddCommand(describeCmd)
 
-	// Add the commands to the rootCmd node.
+	httpCmd = &cobra.Command{
+		Use:   "http",
+		Short: "Use HTTP verbs.",
+		Long:  "Send requests to the HUB using with HTTP verbs and arguments.",
+	}
+	rootCmd.AddCommand(httpCmd)
+
+	// Add the commands to the rootCmd node (e.g. http get /users).
 	if mode != interactive {
 		rootCmd.AddCommand(interactiveCmd)
 	}
 
-	rootCmd.AddCommand(setCmd)
-	rootCmd.AddCommand(createCmd)
-	rootCmd.AddCommand(deleteCmd)
-	rootCmd.AddCommand(listCmd)
-	rootCmd.AddCommand(describeCmd)
 	buildJupyterHub(mode)
 }
 
