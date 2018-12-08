@@ -15,6 +15,7 @@ import (
 var (
 	rootCmd, setCmd, httpCmd, interactiveCmd   *cobra.Command
 	listCmd, describeCmd, createCmd, deleteCmd *cobra.Command
+	addCmd, removeCmd                          *cobra.Command
 	cfgFile, tokenFlagVar, hubURLFlagVar       string
 	verbose, debug                             bool
 )
@@ -63,6 +64,20 @@ func buildRoot(mode runMode) {
 		Long:  "Delete an object on the JupyterHub hub.",
 	}
 	rootCmd.AddCommand(deleteCmd)
+
+	addCmd = &cobra.Command{
+		Use:   "add",
+		Short: "Add an element to a resource.",
+		Long:  "Add an element to a resource on the JupyterHub hub.",
+	}
+	rootCmd.AddCommand(addCmd)
+
+	removeCmd = &cobra.Command{
+		Use:   "remove",
+		Short: "Remove an element from a resource.",
+		Long:  "Remove an element from a resource  on the JupyterHub hub.",
+	}
+	rootCmd.AddCommand(removeCmd)
 
 	listCmd = &cobra.Command{
 		Use: "list",

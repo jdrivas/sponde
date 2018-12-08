@@ -86,7 +86,8 @@ func promptLoop(process func(string) error) (err error) {
 		if token != "" {
 			spacer = " "
 		}
-		prompt := fmt.Sprintf("%s [%s %s]: ", t.Title("sponde"), t.Highlight(connName), t.SubTitle("%s%s%s", hubURL, spacer, token))
+		status := statusDisplay()
+		prompt := fmt.Sprintf("%s [%s%s %s]: ", t.Title("sponde"), t.Info(status), t.Highlight(connName), t.SubTitle("%s%s%s", hubURL, spacer, token))
 		line, err := readline.Line(prompt)
 		if err == io.EOF {
 			moreCommands = false
@@ -101,6 +102,21 @@ func promptLoop(process func(string) error) (err error) {
 		}
 	}
 	return nil
+}
+
+// Yes, I'm sure there's some kind of []rune
+// thing to do here instead.
+func statusDisplay() (s string) {
+	if config.Verbose() {
+		s = fmt.Sprintf("%s%s", s, "v")
+	}
+	if config.Debug() {
+		s = fmt.Sprintf("%s%s", s, "d")
+	}
+	if len(s) > 0 {
+		s = fmt.Sprintf("%s%s", s, " ")
+	}
+	return s
 }
 
 // DoInteractive sets up a readline loop that reads and executes comands.

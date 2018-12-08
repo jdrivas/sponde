@@ -9,7 +9,10 @@ import (
 	"github.com/juju/ansiterm"
 )
 
-func listGroups(groups jh.Groups) {
+type Groups jh.Groups
+
+func (gs Groups) List() {
+	groups := jh.Groups(gs)
 	w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
 	fmt.Fprintf(w, "%s\n", t.Title("Name\tKind\tUsers"))
 	for _, g := range groups {

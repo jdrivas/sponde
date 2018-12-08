@@ -77,12 +77,8 @@ func buildJupyterHub(mode runMode) {
 		Short: "The version of JupyterHub.",
 		Long:  "Returns the version number of the running JupyterHub.",
 		Run: func(cmd *cobra.Command, args []string) {
-			version, err := jh.GetVersion()
-			if err == nil {
-				PrintVersion(version)
-			} else {
-				cmdError(err)
-			}
+			version, resp, err := jh.GetVersion()
+			List(Version(version), resp, err)
 		},
 	})
 
@@ -91,14 +87,8 @@ func buildJupyterHub(mode runMode) {
 		Short: "Hub operational details.",
 		Long:  "Returns detailed information about the running Hub",
 		Run: func(cmd *cobra.Command, args []string) {
-			info, err := jh.GetInfo()
-			if err == nil {
-				if err == nil {
-					PrintInfo(info)
-				}
-			} else {
-				cmdError(err)
-			}
+			info, resp, err := jh.GetInfo()
+			List(Info(info), resp, err)
 		},
 	})
 
@@ -171,12 +161,8 @@ func buildJupyterHub(mode runMode) {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			routes, err := jh.GetProxy()
-			if err == nil {
-				ListRoutes(routes)
-			} else {
-				cmdError(err)
-			}
+			routes, resp, err := jh.GetProxy()
+			List(Routes(routes), resp, err)
 		},
 	}
 	rootCmd.AddCommand(proxyCmd)
@@ -188,7 +174,7 @@ func buildJupyterHub(mode runMode) {
 		Short: "Users accessing the hub.",
 		Long: `Returns a list of users from the connected Hub, 
 or if users are specified, data on those users`,
-		Run: doUsers(listUsers, cmdError),
+		Run: doUsers(listUsers),
 	}
 	listCmd.AddCommand(listUsersCmd)
 	listUsersCmd.SetUsageTemplate(userArgsTemplate)
@@ -198,12 +184,12 @@ or if users are specified, data on those users`,
 		Short: "Hub users.",
 		Long: `Returns a longer description of hub users.
 If no user-id is provided then all Hub users are described.`,
-		Run: doUsers(describeUsers, cmdError),
+		Run: doUsers(describeUsers),
 	}
 	describeCmd.AddCommand(describeUsersCmd)
 	describeUsersCmd.SetUsageTemplate(userArgsTemplate)
 
-	// Tokens
+	// Usrs Tokens
 	tokenCmd := &cobra.Command{
 		// listCmd.AddCommand(&cobra.Command{
 		Use:     "tokens",
@@ -214,10 +200,8 @@ This must be called with at least one user-id, but  may be called with a list.
 The API, and so this command does not actually obtain the token itself.`,
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			tokens, err := jh.GetTokens(args[0])
-			if err == nil {
-				listTokens(tokens)
-			}
+			tokens, resp, err := jh.GetTokens(args[0])
+			List(Tokens(tokens), resp, err)
 		},
 	}
 	listCmd.AddCommand(tokenCmd)
@@ -229,16 +213,8 @@ The API, and so this command does not actually obtain the token itself.`,
 		Short: "Groups registered with the Hub.",
 		Long:  "Returns details the groups that are defined with this Hub.",
 		Run: func(cmd *cobra.Command, args []string) {
-			groups, err := jh.GetGroups()
-			if err == nil && len(groups) > 0 {
-				listGroups(groups)
-			} else {
-				if err != nil {
-					cmdError(err)
-				} else {
-					fmt.Println("There were no groups.")
-				}
-			}
+			groups, resp, err := jh.GetGroups()
+			List(Groups(groups), resp, err)
 		},
 	})
 
@@ -248,23 +224,51 @@ The API, and so this command does not actually obtain the token itself.`,
 		Long:  "Create a a new group on the JupyterHub hub. Requires a name as the first and only argument.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			err := jh.CreateGroup(args[0])
-			if err != nil {
-				cmdError(err)
-			}
+			resp, err := jh.CreateGroup(args[0])
+			List(nil, resp, err)
 		},
 	})
 
+	// Add a user to a group
+	addCmd.AddCommand(&cobra.Command{
+		Use:   "user",
+		Short: "Add user to group",
+		Long:  "Add a named user <user> to the gruoup <group>.",
+		Args:  cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			ug := jh.UserGroup{
+				Name:      args[len(args)-1],
+				UserNames: args[:len(args)-1],
+			}
+			resp, err := jh.AddUserToGroup(ug)
+			List(nil, resp, err)
+		},
+	})
+
+	removeCmd.AddCommand(&cobra.Command{
+		Use:   "user",
+		Short: "Remove a user from a group",
+		Long:  "Remove a named user <user> from the gruoup <group>.",
+		Args:  cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			ug := jh.UserGroup{
+				Name:      args[len(args)-1],
+				UserNames: args[:len(args)-1],
+			}
+			resp, err := jh.RemoveUserFromGroup(ug)
+			List(nil, resp, err)
+		},
+	})
+
+	// Delete a group
 	deleteCmd.AddCommand(&cobra.Command{
 		Use:   "group",
 		Short: "Delete a group on the JupyterHub hub.",
 		Long:  "Delete a group on the JupyterHub hub. Requires a name as the first and only argument.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			err := jh.DeleteGroup(args[0])
-			if err != nil {
-				cmdError(err)
-			}
+			resp, err := jh.DeleteGroup(args[0])
+			List(nil, resp, err)
 		},
 	})
 

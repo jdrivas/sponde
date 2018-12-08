@@ -9,7 +9,10 @@ import (
 	"github.com/juju/ansiterm"
 )
 
-func ListRoutes(routes jh.Routes) {
+type Routes jh.Routes
+
+func (r Routes) List() {
+	routes := jh.Routes(r)
 	w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
 	fmt.Fprintf(w, " %s\n", t.Title("Routespec\tTarget\tUser\tLast Activity"))
 	for _, ri := range routes {

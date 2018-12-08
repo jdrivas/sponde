@@ -12,7 +12,10 @@ import (
 )
 
 // Print prints to stdout a list view of hub's information.
-func PrintInfo(info jh.Info) {
+type Info jh.Info
+
+func (i Info) List() {
+	info := jh.Info(i)
 	lines := [][2]string{
 		{t.Title("JupyterHub"), t.Text(config.GetHubURL())},
 		{t.Title("JupyterHub Version:"), t.Text(info.Version)},

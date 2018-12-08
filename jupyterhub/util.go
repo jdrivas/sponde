@@ -29,7 +29,7 @@ func Get(cmd string, result interface{}) (resp *http.Response, err error) {
 	return Send(http.MethodGet, cmd, result)
 }
 
-// Post works like Get,  but uses the POST verb. Post also excepts a content object
+// Post works like Get, but uses the POST verb. Post also excepts a content object
 // which it will attempt to encode into JSON.
 func Post(cmd string, content interface{}, result interface{}) (resp *http.Response, err error) {
 	return sendObject(http.MethodPost, cmd, content, result)
@@ -65,8 +65,20 @@ func sendObject(method, cmd string, content interface{}, result interface{}) (re
 	if content == nil {
 		resp, err = Send(method, cmd, result)
 	} else {
-		b, err := json.Marshal(content)
+		var b []byte
+		b, err = json.Marshal(content)
 		if err == nil {
+			if viper.GetBool("debug") {
+				prettyJSON := bytes.Buffer{}
+				errI := json.Indent(&prettyJSON, b, "", "  ")
+
+				fmt.Printf("Content to send: %#v\n", content)
+				if errI == nil {
+					fmt.Printf("%s %s\n", t.Title("Sending JSON:"), t.Text(string(prettyJSON.Bytes())))
+				} else {
+					fmt.Printf("%s %s\n", t.Title("Sending JSON:"), t.Text(string(b)))
+				}
+			}
 			resp, err = SendJSONString(method, cmd, string(b), result)
 		}
 	}
@@ -93,14 +105,15 @@ func jhReq(method, cmd string, body io.Reader) (*http.Request, error) {
 
 func newRequest(method, cmd string, body io.Reader) *http.Request {
 	req, err := jhReq(method, cmd, body)
-	if err == nil {
-		if viper.GetBool("debug") {
-			fmt.Printf("Using token authorization with token: %s\n", config.GetSafeToken(false, true))
-		}
-		req.Header.Add("Authorization", fmt.Sprintf("token %s", config.GetToken()))
-	} else {
+	if err != nil {
 		panic(fmt.Sprintf("Coulnd't generate HTTP request - $s\n", err.Error()))
 	}
+
+	if viper.GetBool("debug") {
+		fmt.Printf("Using token authorization with token: %s\n", config.GetSafeToken(false, true))
+	}
+
+	req.Header.Add("Authorization", fmt.Sprintf("token %s", config.GetToken()))
 
 	return req
 }
@@ -109,9 +122,12 @@ func sendReq(req *http.Request, result interface{}) (resp *http.Response, err er
 	resp = nil
 	resp, err = hubClient.Do(req)
 
-	if err == nil && result != nil {
-		if err = checkReturnCode(*resp); err == nil {
-			unmarshal(resp, result)
+	if err == nil {
+		err = checkReturnCode(*resp)
+		if result != nil {
+			if err == nil {
+				err = unmarshal(resp, result)
+			}
 		}
 
 		if viper.GetBool("debug") {
@@ -119,30 +135,13 @@ func sendReq(req *http.Request, result interface{}) (resp *http.Response, err er
 			fmt.Printf("Reponse: %s\n", resp.Status)
 		}
 		if viper.GetBool("debug") {
-			fmt.Printf("%s %s\n", t.Title("Made HTTP Request:"), t.Text("%#v\n", req))
+			fmt.Printf("%s %s\n", t.Title("Made HTTP Request:"), t.Text("%#v", req))
 			fmt.Println("")
-			fmt.Printf("%s %s\n", t.Title("Response:"), t.Text("%#v\n", *resp))
+			fmt.Printf("%s %s\n", t.Title("Response:"), t.Text("%#v", *resp))
 		}
 	}
 	return resp, err
 }
-
-// // getResult makes the get call with the command, and returns the
-// // response body in the provided object, unmarshalled from the
-// // JSON in the response object. The returned response will not
-// // have a body in it.
-// func getResult(cmd string, result interface{}) (*http.Response, error) {
-// 	resp, err := Get(cmd)
-// 	if err == nil {
-// 		if err = checkReturnCode(*resp); err == nil {
-// 			unmarshal(resp, result)
-// 		}
-// 		if viper.GetBool("debug") {
-// 			fmt.Printf("Unmashaled result: %#v\n", result)
-// 		}
-// 	}
-// 	return resp, err
-// }
 
 // This eats the body in the response, but returns it in the
 //  obj passed in.
@@ -190,7 +189,7 @@ func checkReturnCode(resp http.Response) (err error) {
 }
 
 func httpErrorMesg(resp http.Response, message string) error {
-	return fmt.Errorf("HTTP Request %s:%s, HTTP Response -> %s. %s",
+	return fmt.Errorf("HTTP Request %s:%s, HTTP Response: %s. %s",
 		resp.Request.Method, resp.Request.URL, resp.Status, message)
 }
 

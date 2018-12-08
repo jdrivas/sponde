@@ -7,6 +7,9 @@ import (
 	t "github.com/jdrivas/sponde/term"
 )
 
-func PrintVersion(version jh.Version) {
+type Version jh.Version
+
+func (v Version) List() {
+	version := jh.Version(v)
 	fmt.Printf("%s %s\n", t.Title("JupyterHub Version:"), t.Text(version.Version))
 }

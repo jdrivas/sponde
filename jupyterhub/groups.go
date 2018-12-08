@@ -1,6 +1,9 @@
 package jupyterhub
 
-import "fmt"
+import (
+	"fmt"
+	"net/http"
+)
 
 // Version is the version nof the running JupyterHub
 type Groups []Group
@@ -16,23 +19,32 @@ type UserGroup struct {
 	UserNames []string `json:"users"`
 }
 
-// GetVersion returns the version of the JupyterHub from querying JupyterHub API.
-func GetGroups() (groups Groups, err error) {
-	_, err = Get("/groups", &groups)
-	return groups, err
+// GetGroups returns all of the groups on the hub.
+func GetGroups() (groups Groups, resp *http.Response, err error) {
+	resp, err = Get("/groups", &groups)
+	return groups, resp, err
 }
 
-func CreateGroup(name string) (err error) {
-	_, err = Post(fmt.Sprintf("/groups/%s", name), nil, nil)
-	return err
+// CreateGroup creates a group with name on the hub.
+func CreateGroup(name string) (resp *http.Response, err error) {
+	resp, err = Post(fmt.Sprintf("/groups/%s", name), nil, nil)
+	return resp, err
 }
 
-func DeleteGroup(name string) (err error) {
-	_, err = Delete(fmt.Sprintf("/groups/%s", name), nil, nil)
-	return err
+// DeleteGroup deletes the group named name from the hub.
+func DeleteGroup(name string) (resp *http.Response, err error) {
+	resp, err = Delete(fmt.Sprintf("/groups/%s", name), nil, nil)
+	return resp, err
 }
 
-func RemoveUserFromGroup(user UserGroup) (err error) {
-	_, err = Post(fmt.Sprintf("/groups/%s/users", user.Name), user, nil)
-	return err
+// AddUserToGroup adds the UserGroup.UserNames to the group UserGroup.Name on the hub.
+func AddUserToGroup(user UserGroup) (resp *http.Response, err error) {
+	resp, err = Post(fmt.Sprintf("/groups/%s/users", user.Name), user, nil)
+	return resp, err
+}
+
+// RemoveUserFromGroup  removes the UserGroup.UserNames from the group UserGroup.Name from the hub.
+func RemoveUserFromGroup(user UserGroup) (resp *http.Response, err error) {
+	resp, err = Delete(fmt.Sprintf("/groups/%s/users", user.Name), user, nil)
+	return resp, err
 }

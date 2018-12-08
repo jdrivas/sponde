@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 
 	jh "github.com/jdrivas/sponde/jupyterhub"
@@ -12,22 +13,26 @@ import (
 
 // ListUsers prints a consice one line at a time reprsentation of
 // users.
-func listUsers(users jh.UserList) {
+
+type UserList jh.UserList
+
+func (ul UserList) List() {
+	users := jh.UserList(ul)
 	w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
-	fmt.Fprintf(w, "%s\n", t.Title("Name\tAdmin\tCreated\tServer\tLast"))
+	fmt.Fprintf(w, "%s\n", t.Title("Name\tAdmin\tGroups\tCreated\tServer\tLast"))
 	for _, u := range users {
 		serverURL := "<empty>"
 		if u.ServerURL != "" {
 			serverURL = u.ServerURL
 		}
-		// fmt.Fprintf(w, "%s\t%t\t%s\t%s\t%s\n", u.Name, u.Admin, u.Created, serverURL, u.LastActivity)
-		fmt.Fprintf(w, "%s\n", t.SubTitle("%s\t%t\t%s\t%s\t%s", u.Name, u.Admin, u.Created, serverURL, u.LastActivity))
+		fmt.Fprintf(w, "%s\n", t.SubTitle("%s\t%t\t%v\t%s\t%s\t%s", u.Name, u.Admin, u.Groups, u.Created, serverURL, u.LastActivity))
 	}
 	w.Flush()
 }
 
 // DescribeUsers prints all of the infomration there is about each user.
-func describeUsers(users jh.UserList) {
+func (ul UserList) Describe() {
+	users := jh.UserList(ul)
 	for _, u := range users {
 		w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
 		fmt.Fprintf(w, "Name\tKind\tAdmin\tServer\tCreated\tLast Activity\tPending\n")
@@ -59,48 +64,63 @@ func describeUsers(users jh.UserList) {
 	}
 }
 
+// For the doUsers below.
+func listUsers(u UserList, resp *http.Response, err error) {
+	List(u, resp, err)
+}
+func describeUsers(u UserList, resp *http.Response, err error) {
+	Describe(u, resp, err)
+}
+
 // doUsers is a command handler that will print a list of all users on the hub
 // if no arguments are provided, or treat arguments as user names and print a list of users
 // found on the Hub with details, and the names of users not found on the hub.
-func doUsers(listFunc func(jh.UserList), logError func(error)) func(*cobra.Command, []string) {
+func doUsers(listFunc func(UserList, *http.Response, error)) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
+
 		var users jh.UserList
 		var badNames []string
+		var resp *http.Response
 		var err error
+
 		if len(args) > 0 {
-			users, badNames, err = jh.GetUsers(args)
+			users, badNames, resp, err = jh.GetUsers(args)
 		} else {
-			users, err = jh.GetAllUsers()
+			users, resp, err = jh.GetAllUsers()
 		}
-		if err == nil {
-			if len(users) > 0 {
-				listFunc(users)
+
+		// Display uesrs if you have thme
+		if len(users) > 0 {
+			listFunc(UserList(users), resp, err)
+		}
+		// Print an extra line if you have both
+		if len(users) > 0 && len(badNames) > 0 {
+			fmt.Println("")
+		}
+		// Displpay bad names if you have them
+		if len(badNames) > 0 {
+			// TODO: Pluralize
+			fmt.Printf("There were %d user names not found on the Hub:\n", len(badNames))
+			for _, n := range badNames {
+				fmt.Printf("%s\n", n)
 			}
-			if len(users) > 0 && len(badNames) > 0 {
-				fmt.Println("")
-			}
-			if len(badNames) > 0 {
-				// TODO: Pluralize
-				fmt.Printf("There were %d user names not found on the Hub:\n", len(badNames))
-				for _, n := range badNames {
-					fmt.Printf("%s\n", n)
-				}
-			}
-		} else {
-			logError(err)
 		}
 	}
 }
 
-func listTokens(tokens jh.Tokens) {
+type Tokens jh.Tokens
 
+func (ts Tokens) List() {
+	tokens := jh.Tokens(ts)
 	w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
-	fmt.Fprintf(w, "%s\n", t.Title("ID\tKind\tCreated\tLast Activity\tClient\n"))
+	fmt.Fprintf(w, "%s\n", t.Title("ID\tKind\tCreated\tExpires\tLast Activity\tNote (OAuth client)"))
 	for _, tk := range tokens.APITokens {
-		fmt.Fprintf(w, "%s\n", t.Text("%s\t%s\t%s\t%s\t%s", tk.ID, tk.Kind, tk.Created, tk.LastActivity, tk.Note))
+		tk.Expires = checkForEmptyString(tk.Expires)
+		fmt.Fprintf(w, "%s\n", t.Text("%s\t%s\t%s\t%s\t%s\t%s", tk.ID, tk.Kind, tk.Created, tk.Expires, tk.LastActivity, tk.Note))
 	}
 	for _, tk := range tokens.OAuthTokens {
-		fmt.Fprintf(w, "%s\n", t.Text("%s\t%s\t%s\t%s\t%s", tk.ID, tk.Kind, tk.Created, tk.LastActivity, tk.OAuthClient))
+		tk.Expires = checkForEmptyString(tk.Expires)
+		fmt.Fprintf(w, "%s\n", t.Text("%s\t%s\t%s\t%s\t%s\t%s", tk.ID, tk.Kind, tk.Created, tk.Expires, tk.LastActivity, tk.OAuthClient))
 	}
 	w.Flush()
 }

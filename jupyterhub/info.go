@@ -2,6 +2,7 @@ package jupyterhub
 
 import (
 	"fmt"
+	"net/http"
 )
 
 type Info struct {
@@ -23,7 +24,7 @@ type Spawner struct {
 }
 
 // GetInfo returns the Hub's system information.
-func GetInfo() (info Info, err error) {
-	_, err = Get(fmt.Sprintf("/info"), &info)
-	return info, err
+func GetInfo() (info Info, resp *http.Response, err error) {
+	resp, err = Get(fmt.Sprintf("/info"), &info)
+	return info, resp, err
 }
