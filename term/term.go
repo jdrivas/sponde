@@ -1,6 +1,7 @@
 package term
 
 import (
+	"fmt"
 	"github.com/fatih/color"
 )
 
@@ -21,3 +22,7 @@ var (
 	Warn      = color.New(color.FgYellow).SprintfFunc()
 	Fail      = color.New(color.FgRed).SprintfFunc()
 )
+
+func Error(err error) string {
+	return (fmt.Sprintf("%s %s", Title("Error: "), Fail("%v", err)))
+}

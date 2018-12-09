@@ -33,9 +33,10 @@ var (
 	}
 
 	verboseCmd = &cobra.Command{
-		Use:   "verbose",
-		Short: "Toggle verbose mode and print status.",
-		Long:  "Toggle verbose, verbose will print out detailed status as its happening.",
+		Use:     "verbose",
+		Aliases: []string{"v"},
+		Short:   "Toggle verbose mode and print status.",
+		Long:    "Toggle verbose, verbose will print out detailed status as its happening.",
 		Run: func(cmd *cobra.Command, args []string) {
 			viper.Set("verbose", !viper.GetBool("verbose"))
 			vs := "Off"
@@ -47,9 +48,10 @@ var (
 	}
 
 	debugCmd = &cobra.Command{
-		Use:   "debug",
-		Short: "Toggle debug mode and print status.",
-		Long:  "Toggle debug, verbose will print out detailed status as its happening.",
+		Use:     "debug",
+		Aliases: []string{"d"},
+		Short:   "Toggle debug mode and print status.",
+		Long:    "Toggle debug, verbose will print out detailed status as its happening.",
 		Run: func(cmd *cobra.Command, args []string) {
 			viper.Set("debug", !viper.GetBool("debug"))
 			vs := "Off"

@@ -19,58 +19,6 @@ const showTokensOnceFlagKey = "show-tokens"
 
 func buildJupyterHub(mode runMode) {
 
-	// HTTP Util
-	httpCmd.AddCommand(&cobra.Command{
-		Use:   "send",
-		Short: "HTTP <method> <arg> to hub.",
-		Long: `Sends an HTTP <method> <arg> to the Jupyterhub hub.
-		<method> is an HTTP verb (e.g. "GET")`,
-		Args: cobra.MinimumNArgs(2),
-		Run: func(cmd *cobra.Command, args []string) {
-			doHTTPResponse(jh.Send(args[0], args[1], nil))
-		},
-	})
-
-	httpCmd.AddCommand(&cobra.Command{
-		Use:   "get",
-		Short: "HTTP GET <arg> to hub.",
-		Long:  "Sends an HTTP GET <arg> to the Jupyterhub hub.",
-		Args:  cobra.MinimumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			doHTTPResponse(jh.Get(args[0], nil))
-		},
-	})
-
-	httpCmd.AddCommand(&cobra.Command{
-		Use:   "post",
-		Short: "HTTP POST <arg> to hub.",
-		Long:  "Sends an HTTP POST <arg> to the Jupyterhub hub.",
-		Args:  cobra.MinimumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			doHTTPResponse(jh.Post(args[0], nil, nil))
-		},
-	})
-
-	httpCmd.AddCommand(&cobra.Command{
-		Use:   "post-content",
-		Short: "HTTP POST <arg> to hub.",
-		Long:  "Sends an HTTP POST <arg> to the Jupyterhub hub.",
-		Args:  cobra.MinimumNArgs(2),
-		Run: func(cmd *cobra.Command, args []string) {
-			doHTTPResponse(jh.SendJSONString("POST", args[0], strings.Join(args[1:], " "), nil))
-		},
-	})
-
-	httpCmd.AddCommand(&cobra.Command{
-		Use:   "delete",
-		Short: "HTTP DELETE <arg> to hub.",
-		Long:  "Sends an HTTP DELETE <arg> to the Jupyterhub hub.",
-		Args:  cobra.MinimumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			doHTTPResponse(jh.Delete(args[0], nil, nil))
-		},
-	})
-
 	// Util
 	rootCmd.AddCommand(&cobra.Command{
 		Use:   "version",
@@ -218,6 +166,17 @@ The API, and so this command does not actually obtain the token itself.`,
 		},
 	})
 
+	describeCmd.AddCommand(&cobra.Command{
+		Use:   "group",
+		Short: "Groups registered with the Hub.",
+		Long:  "Returns details the groups that are defined with this Hub.",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			group, resp, err := jh.GetGroup(args[0])
+			Describe(Group(group), resp, err)
+		},
+	})
+
 	createCmd.AddCommand(&cobra.Command{
 		Use:   "group",
 		Short: "Create a group on the JupyterHub hub.",
@@ -240,8 +199,8 @@ The API, and so this command does not actually obtain the token itself.`,
 				Name:      args[len(args)-1],
 				UserNames: args[:len(args)-1],
 			}
-			resp, err := jh.AddUserToGroup(ug)
-			List(nil, resp, err)
+			userGroup, resp, err := jh.AddUserToGroup(ug)
+			List(UserGroup(userGroup), resp, err)
 		},
 	})
 
@@ -255,8 +214,8 @@ The API, and so this command does not actually obtain the token itself.`,
 				Name:      args[len(args)-1],
 				UserNames: args[:len(args)-1],
 			}
-			resp, err := jh.RemoveUserFromGroup(ug)
-			List(nil, resp, err)
+			userGroup, resp, err := jh.RemoveUserFromGroup(ug)
+			List(UserGroup(userGroup), resp, err)
 		},
 	})
 
@@ -288,6 +247,58 @@ The API, and so this command does not actually obtain the token itself.`,
 					fmt.Println("There were no services.")
 				}
 			}
+		},
+	})
+
+	// HTTP Util
+	httpCmd.AddCommand(&cobra.Command{
+		Use:   "send",
+		Short: "HTTP <method> <arg> to hub.",
+		Long: `Sends an HTTP <method> <arg> to the Jupyterhub hub.
+			<method> is an HTTP verb (e.g. "GET")`,
+		Args: cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			doHTTPResponse(jh.Send(args[0], args[1], nil))
+		},
+	})
+
+	httpCmd.AddCommand(&cobra.Command{
+		Use:   "get",
+		Short: "HTTP GET <arg> to hub.",
+		Long:  "Sends an HTTP GET <arg> to the Jupyterhub hub.",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			doHTTPResponse(jh.Get(args[0], nil))
+		},
+	})
+
+	httpCmd.AddCommand(&cobra.Command{
+		Use:   "post",
+		Short: "HTTP POST <arg> to hub.",
+		Long:  "Sends an HTTP POST <arg> to the Jupyterhub hub.",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			doHTTPResponse(jh.Post(args[0], nil, nil))
+		},
+	})
+
+	httpCmd.AddCommand(&cobra.Command{
+		Use:   "post-content",
+		Short: "HTTP POST <arg> to hub.",
+		Long:  "Sends an HTTP POST <arg> to the Jupyterhub hub.",
+		Args:  cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			doHTTPResponse(jh.SendJSONString("POST", args[0], strings.Join(args[1:], " "), nil))
+		},
+	})
+
+	httpCmd.AddCommand(&cobra.Command{
+		Use:   "delete",
+		Short: "HTTP DELETE <arg> to hub.",
+		Long:  "Sends an HTTP DELETE <arg> to the Jupyterhub hub.",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			doHTTPResponse(jh.Delete(args[0], nil, nil))
 		},
 	})
 

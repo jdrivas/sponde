@@ -19,6 +19,12 @@ type UserGroup struct {
 	UserNames []string `json:"users"`
 }
 
+// GetGroup return a named group.
+func GetGroup(name string) (group Group, resp *http.Response, err error) {
+	resp, err = Get(fmt.Sprintf("/groups/%s", name), &group)
+	return group, resp, err
+}
+
 // GetGroups returns all of the groups on the hub.
 func GetGroups() (groups Groups, resp *http.Response, err error) {
 	resp, err = Get("/groups", &groups)
@@ -38,13 +44,13 @@ func DeleteGroup(name string) (resp *http.Response, err error) {
 }
 
 // AddUserToGroup adds the UserGroup.UserNames to the group UserGroup.Name on the hub.
-func AddUserToGroup(user UserGroup) (resp *http.Response, err error) {
-	resp, err = Post(fmt.Sprintf("/groups/%s/users", user.Name), user, nil)
-	return resp, err
+func AddUserToGroup(user UserGroup) (returnUsers UserGroup, resp *http.Response, err error) {
+	resp, err = Post(fmt.Sprintf("/groups/%s/users", user.Name), user, &returnUsers)
+	return returnUsers, resp, err
 }
 
 // RemoveUserFromGroup  removes the UserGroup.UserNames from the group UserGroup.Name from the hub.
-func RemoveUserFromGroup(user UserGroup) (resp *http.Response, err error) {
-	resp, err = Delete(fmt.Sprintf("/groups/%s/users", user.Name), user, nil)
-	return resp, err
+func RemoveUserFromGroup(user UserGroup) (returnUsers UserGroup, resp *http.Response, err error) {
+	resp, err = Delete(fmt.Sprintf("/groups/%s/users", user.Name), user, &returnUsers)
+	return returnUsers, resp, err
 }
