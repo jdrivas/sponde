@@ -108,6 +108,16 @@ func doUsers(listFunc func(UserList, *http.Response, error)) func(*cobra.Command
 	}
 }
 
+type UpdatedUser jh.UpdatedUser
+
+func (u UpdatedUser) List() {
+	user := jh.UpdatedUser(u)
+	w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
+	fmt.Fprintf(w, "%s\n", t.Title("Name\tAdmin"))
+	fmt.Fprintf(w, "%s\n", t.Text("%s\t%t", user.Name, user.Admin))
+	w.Flush()
+}
+
 type Tokens jh.Tokens
 
 func (ts Tokens) List() {

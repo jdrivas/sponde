@@ -128,14 +128,54 @@ or if users are specified, data on those users`,
 	listUsersCmd.SetUsageTemplate(userArgsTemplate)
 
 	var describeUsersCmd = &cobra.Command{
-		Use:   "users",
-		Short: "Hub users.",
+		Use:     "users",
+		Aliases: []string{"user"},
+		Short:   "Hub users.",
 		Long: `Returns a longer description of hub users.
 If no user-id is provided then all Hub users are described.`,
 		Run: doUsers(describeUsers),
 	}
 	describeCmd.AddCommand(describeUsersCmd)
-	describeUsersCmd.SetUsageTemplate(userArgsTemplate)
+
+	var updateUsersCmd = &cobra.Command{
+		Use:   "user",
+		Short: "Change the name or admin status of an existing user.",
+		Long:  "Change the name or admin status of an exiting hub user.",
+	}
+	updateCmd.AddCommand(updateUsersCmd)
+
+	updateUsersCmd.AddCommand(&cobra.Command{
+		Use:   "admin",
+		Short: "Change the admin status of a user.",
+		Long:  "Set the admin status of an existing hub user to \"true\" or \"false\".",
+		Args: func(cmd *cobra.Command, args []string) (err error) {
+			_, err = truthyString(args[1])
+			return err
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			v, _ := truthyString(args[1])
+			u := jh.UpdatedUser{
+				Name:  args[0],
+				Admin: v,
+			}
+			updatedUser, resp, err := jh.UpdateUser(args[0], u)
+			List(UpdatedUser(updatedUser), resp, err)
+		},
+	})
+
+	updateUsersCmd.AddCommand(&cobra.Command{
+		Use:   "name",
+		Short: "Change the name status of a user.",
+		Long:  "Set the name status of an existing hub user from <old-name> to <new-name>.",
+		Args:  cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			u := jh.UpdatedUser{
+				Name: args[1],
+			}
+			updatedUser, resp, err := jh.UpdateUser(args[0], u)
+			List(UpdatedUser(updatedUser), resp, err)
+		},
+	})
 
 	// Usrs Tokens
 	tokenCmd := &cobra.Command{
@@ -258,7 +298,11 @@ The API, and so this command does not actually obtain the token itself.`,
 			<method> is an HTTP verb (e.g. "GET")`,
 		Args: cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
-			httpDisplay(jh.Send(args[0], args[1], nil))
+			if len(args) == 2 {
+				httpDisplay(jh.Send(args[0], args[1], nil))
+			} else {
+				httpDisplay(jh.SendJSONString(args[0], args[1], strings.Join(args[2:], " "), nil))
+			}
 		},
 	})
 

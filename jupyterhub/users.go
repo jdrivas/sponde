@@ -34,6 +34,11 @@ type StateValues struct {
 	PodName string `json:"progress_url"`
 }
 
+type UpdatedUser struct {
+	Name  string `json:"name"`
+	Admin bool   `json:"admin"`
+}
+
 // GetUser retruns a users information
 func GetUser(username string) (user User, resp *http.Response, err error) {
 	resp, err = Get(fmt.Sprintf("%s%s", "/users", username), &user)
@@ -72,6 +77,11 @@ func GetUsers(usernames []string) (users UserList, badUsers []string, resp *http
 func GetAllUsers() (users UserList, resp *http.Response, err error) {
 	resp, err = Get("/users", &users)
 	return users, resp, err
+}
+
+func UpdateUser(name string, user UpdatedUser) (returnUser UpdatedUser, resp *http.Response, err error) {
+	resp, err = Patch(fmt.Sprintf("/users/%s", name), user, &returnUser)
+	return returnUser, resp, err
 }
 
 type Tokens struct {

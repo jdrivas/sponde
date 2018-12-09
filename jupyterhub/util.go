@@ -31,13 +31,17 @@ func Get(cmd string, result interface{}) (resp *http.Response, err error) {
 
 // Post works like Get, but uses the POST verb. Post also excepts a content object
 // which it will attempt to encode into JSON.
-func Post(cmd string, content interface{}, result interface{}) (resp *http.Response, err error) {
+func Post(cmd string, content, result interface{}) (resp *http.Response, err error) {
 	return sendObject(http.MethodPost, cmd, content, result)
 }
 
 // Delete works like Post but uses the DELETE verb.
-func Delete(cmd string, content interface{}, result interface{}) (resp *http.Response, err error) {
+func Delete(cmd string, content, result interface{}) (resp *http.Response, err error) {
 	return sendObject(http.MethodDelete, cmd, content, result)
+}
+
+func Patch(cmd string, content, result interface{}) (resp *http.Response, err error) {
+	return sendObject(http.MethodPatch, cmd, content, result)
 }
 
 func Send(method, cmd string, result interface{}) (resp *http.Response, err error) {
@@ -47,8 +51,22 @@ func Send(method, cmd string, result interface{}) (resp *http.Response, err erro
 }
 
 func SendJSONString(method, cmd string, content string, result interface{}) (resp *http.Response, err error) {
+
+	if config.Verbose() {
+		prettyJSON := bytes.Buffer{}
+		err := json.Indent(&prettyJSON, []byte(content), "", "  ")
+		if err == nil {
+			fmt.Printf("%s\n%s\n", t.Title("JSON Body:"), t.Text(string(prettyJSON.Bytes())))
+		} else {
+			fmt.Printf("%s %s \n", t.Title("JSON Error:"), t.Fail("%v", err))
+			fmt.Printf("%s\n%s\n", t.Title("Body:"), t.Text(content))
+		}
+
+	}
+
 	buff := bytes.NewBuffer([]byte(content))
 	req := newRequest(method, cmd, buff)
+	req.Header.Add("Content-Type", "application/json")
 	resp, err = sendReq(req, result)
 	return resp, err
 }
@@ -130,14 +148,15 @@ func sendReq(req *http.Request, result interface{}) (resp *http.Response, err er
 			}
 		}
 
-		if viper.GetBool("debug") {
+		switch {
+		case config.Debug():
+			fmt.Printf("%s %s\n", t.Title("Made HTTP Request:"), t.Text("%#v", req))
+			fmt.Printf("%s %s\n", t.Title("Response:"), t.Text("%#v", *resp))
 			fmt.Printf("HTTP: %s:%s\n", req.Method, req.URL)
 			fmt.Printf("Reponse: %s\n", resp.Status)
-		}
-		if viper.GetBool("debug") {
-			fmt.Printf("%s %s\n", t.Title("Made HTTP Request:"), t.Text("%#v", req))
-			fmt.Println("")
-			fmt.Printf("%s %s\n", t.Title("Response:"), t.Text("%#v", *resp))
+		case config.Verbose():
+			fmt.Printf("%s %s\n", t.Title("Made HTTP Request:"), t.Text("%s", req.URL))
+			fmt.Printf("Reponse: %s\n", resp.Status)
 		}
 	}
 	return resp, err
