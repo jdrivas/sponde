@@ -322,19 +322,23 @@ The API, and so this command does not actually obtain the token itself.`,
 		Long:  "Sends an HTTP POST <arg> to the Jupyterhub hub.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			httpDisplay(jh.Post(args[0], nil, nil))
+			if len(args) > 1 {
+				httpDisplay(jh.Post(args[0], strings.Join(args[1:], " "), nil))
+			} else {
+				httpDisplay(jh.Post(args[0], nil, nil))
+			}
 		},
 	})
 
-	httpCmd.AddCommand(&cobra.Command{
-		Use:   "post-content",
-		Short: "HTTP POST <arg> to hub.",
-		Long:  "Sends an HTTP POST <arg> to the Jupyterhub hub.",
-		Args:  cobra.MinimumNArgs(2),
-		Run: func(cmd *cobra.Command, args []string) {
-			httpDisplay(jh.SendJSONString("POST", args[0], strings.Join(args[1:], " "), nil))
-		},
-	})
+	// httpCmd.AddCommand(&cobra.Command{
+	// 	Use:   "post-content",
+	// 	Short: "HTTP POST <arg> to hub.",
+	// 	Long:  "Sends an HTTP POST <arg> to the Jupyterhub hub.",
+	// 	Args:  cobra.MinimumNArgs(2),
+	// 	Run: func(cmd *cobra.Command, args []string) {
+	// 		httpDisplay(jh.SendJSONString("POST", args[0], strings.Join(args[1:], " "), nil))
+	// 	},
+	// })
 
 	httpCmd.AddCommand(&cobra.Command{
 		Use:   "delete",

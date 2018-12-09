@@ -195,7 +195,7 @@ func checkReturnCode(resp http.Response) (err error) {
 	if resp.StatusCode >= 300 {
 		switch resp.StatusCode {
 		case http.StatusNotFound:
-			err = httpErrorMesg(resp, "Check for misbehaving connection, or missing token.")
+			err = httpErrorMesg(resp, "Check for valid argument (user, group etc).")
 		case http.StatusUnauthorized:
 			err = httpErrorMesg(resp, "Check for valid token.")
 		case http.StatusForbidden:

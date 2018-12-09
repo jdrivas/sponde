@@ -21,6 +21,7 @@ var (
 	Success   = color.New(color.FgGreen).SprintfFunc()
 	Warn      = color.New(color.FgYellow).SprintfFunc()
 	Fail      = color.New(color.FgRed).SprintfFunc()
+	Alert     = color.New(color.FgRed).SprintfFunc()
 )
 
 func Error(err error) string {

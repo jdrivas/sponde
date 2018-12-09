@@ -79,7 +79,11 @@ func render(renderer func(), resp *http.Response, err error) {
 	case config.Verbose():
 		shortHTTPDecorate((errorDecorate(renderer, err)), resp)()
 	default:
-		errorDecorate(renderer, err)()
+		if err == nil {
+			errorDecorate(renderer, err)()
+		} else {
+			shortHTTPDecorate((errorDecorate(renderer, err)), resp)()
+		}
 	}
 }
 
@@ -109,10 +113,23 @@ func shortHTTPDecorate(f func(), resp *http.Response) func() {
 			nilResp()
 		} else {
 			fmt.Printf("%s %s\n", t.Title("HTTP Response: "), httpStatusFunc(resp.StatusCode)("%s", resp.Status))
+			body, err := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err == nil && resp.StatusCode != http.StatusNoContent {
+				m, err := getMessage(body)
+				if err == nil && m.Message != "" {
+					fmt.Printf("%s %s\n", t.Title("Message:"), t.Alert(m.Message))
+				}
+			}
 		}
 
 		f()
 	})
+}
+
+type Message struct {
+	Status  int    `json:"status"`
+	Message string `json:"message"`
 }
 
 // Tabled based HTTP reseponse with headers.
@@ -137,19 +154,29 @@ func httpDecorate(f func(), resp *http.Response) func() {
 			// HTTP Body and pretty print JSON.
 			body, err := ioutil.ReadAll(resp.Body)
 			resp.Body.Close()
-			if err == nil {
+			if err == nil && resp.StatusCode != http.StatusNoContent {
 				// We'll just try to print JSON
-				// if resp.Header.Get("Content-Type") == "application/json" {
+
 				prettyJSON := bytes.Buffer{}
 				err := json.Indent(&prettyJSON, body, "", "  ")
 				if err == nil {
+
+					// Yes, this is totally gratuitous.
+					m, err := getMessage(body)
+					if err == nil && m.Message != "" {
+						fmt.Printf("%s %s\n", t.Title("Message:"), t.Alert(m.Message))
+					}
+
+					// Print out the body
 					fmt.Printf("%s\n%s\n", t.Title("Body:"), t.Text("%s", string(prettyJSON.Bytes())))
 				} else {
 					fmt.Printf("%s\n%s\n", t.Title("Body:"), t.Text("%s", string(body)))
 					fmt.Printf("%s %s \n", t.Title("JSON Error:"), t.Fail("%v", err))
 				}
 			} else {
-				fmt.Printf("%s %s\n", t.Title("Body:"), t.Text("Already Read!"))
+				if err != nil {
+					fmt.Printf("%s %s\n", t.Title("Body:"), t.Text("%v", err))
+				}
 			}
 
 		} else {
@@ -159,6 +186,11 @@ func httpDecorate(f func(), resp *http.Response) func() {
 		f()
 
 	})
+}
+
+func getMessage(jsonString []byte) (m Message, err error) {
+	err = json.Unmarshal(jsonString, &m)
+	return m, err
 }
 
 func httpStatusFunc(httpStatus int) (f t.ColorSprintfFunc) {
