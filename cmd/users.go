@@ -89,7 +89,7 @@ func doUsers(listFunc func(UserList, *http.Response, error)) func(*cobra.Command
 			users, resp, err = jh.GetAllUsers()
 		}
 
-		// Display uesrs if you have thme
+		// Display uesrs if you have them
 		if len(users) > 0 {
 			listFunc(UserList(users), resp, err)
 		}

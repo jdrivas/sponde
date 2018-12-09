@@ -258,7 +258,7 @@ The API, and so this command does not actually obtain the token itself.`,
 			<method> is an HTTP verb (e.g. "GET")`,
 		Args: cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
-			doHTTPResponse(jh.Send(args[0], args[1], nil))
+			httpDisplay(jh.Send(args[0], args[1], nil))
 		},
 	})
 
@@ -268,7 +268,7 @@ The API, and so this command does not actually obtain the token itself.`,
 		Long:  "Sends an HTTP GET <arg> to the Jupyterhub hub.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			doHTTPResponse(jh.Get(args[0], nil))
+			httpDisplay(jh.Get(args[0], nil))
 		},
 	})
 
@@ -278,7 +278,7 @@ The API, and so this command does not actually obtain the token itself.`,
 		Long:  "Sends an HTTP POST <arg> to the Jupyterhub hub.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			doHTTPResponse(jh.Post(args[0], nil, nil))
+			httpDisplay(jh.Post(args[0], nil, nil))
 		},
 	})
 
@@ -288,7 +288,7 @@ The API, and so this command does not actually obtain the token itself.`,
 		Long:  "Sends an HTTP POST <arg> to the Jupyterhub hub.",
 		Args:  cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
-			doHTTPResponse(jh.SendJSONString("POST", args[0], strings.Join(args[1:], " "), nil))
+			httpDisplay(jh.SendJSONString("POST", args[0], strings.Join(args[1:], " "), nil))
 		},
 	})
 
@@ -298,7 +298,7 @@ The API, and so this command does not actually obtain the token itself.`,
 		Long:  "Sends an HTTP DELETE <arg> to the Jupyterhub hub.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			doHTTPResponse(jh.Delete(args[0], nil, nil))
+			httpDisplay(jh.Delete(args[0], nil, nil))
 		},
 	})
 

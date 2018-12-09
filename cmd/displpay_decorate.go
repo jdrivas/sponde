@@ -13,11 +13,29 @@ import (
 	"github.com/juju/ansiterm"
 )
 
-// We want to decorate the display of the Hub data we get.
-// So for each struct in sponde/jupyterhub/*
-// we create a 'shadow' type that we can add display methods to.
-// e.g. type  Indo jh.Info
-//  Then we can decorate with the functions below.
+// We want to decorate List and Describe with some context dependent
+// display of the HTTP response and any errors.
+//
+// List or Describe are created as methods on objects that are mirror to the
+// jupyterhub objects. We want to use method displatch to deal with the
+// different kinds of objects and sicne we can't add functions outside of
+// a package, we'll create mirror types.
+// e.g.   type Group jh.Group
+//
+// To use these you cast an object from jh to the mirror type, then
+// call the function List() or Describe() with the result from the JH function:
+//
+//   groups, resp, err := jh.GetGroups()
+//   List(Groups(groups), resp, err)
+//
+// The reason we don't call the  method directly o group is that
+// we want to decorate the output with resp and error display depending
+// on: error condition, verbose vs. debug etc. Also, we want the same display
+// output in those cases where the is no object returned from the jh functions (e.g. jh.GetGroups).
+
+//
+// To do this, List(...) and Describe(...) both call render() which sets up
+// a decorotor pipeline as needed.
 
 // There are two basic display functions: List and Describe.
 // Not every data object supports both. Generally, they
@@ -30,23 +48,38 @@ type Describable interface {
 	Describe()
 }
 
-// We want to decorate listing with some context dpendent
-// additional display of the response and any errors.
-
+// List and Describe display their objects by calling render, but
+// first checking that an object is there. If not they send along
+// an empty function for the descoroator to call.
 func List(d Listable, resp *http.Response, err error) {
-
-	lister := func() {}
+	renderer := func() {}
 	if d != nil {
-		lister = d.List
+		renderer = d.List
 	}
+	render(renderer, resp, err)
+}
 
+func Describe(d Describable, resp *http.Response, err error) {
+	renderer := func() {}
+	if d != nil {
+		renderer = d.Describe
+	}
+	render(renderer, resp, err)
+}
+
+// This is for the HTTP direct commands which have jh ojects.
+func httpDisplay(resp *http.Response, err error) {
+	httpDecorate(errorDecorate(func() {}, err), resp)()
+}
+
+func render(renderer func(), resp *http.Response, err error) {
 	switch {
 	case config.Debug():
-		httpDecorate((errorDecorate(lister, err)), resp)()
+		httpDecorate((errorDecorate(renderer, err)), resp)()
 	case config.Verbose():
-		shortHTTPDecorate((errorDecorate(lister, err)), resp)()
+		shortHTTPDecorate((errorDecorate(renderer, err)), resp)()
 	default:
-		errorDecorate(lister, err)()
+		errorDecorate(renderer, err)()
 	}
 }
 
@@ -105,17 +138,15 @@ func httpDecorate(f func(), resp *http.Response) func() {
 			body, err := ioutil.ReadAll(resp.Body)
 			resp.Body.Close()
 			if err == nil {
-				if resp.Header.Get("Content-Type") == "application/json" {
-					// if resp.StatusCode < 300 {
-					prettyJSON := bytes.Buffer{}
-					err := json.Indent(&prettyJSON, body, "", "  ")
-					if err == nil {
-						fmt.Printf("%s\n%s\n", t.Title("Body:"), t.Text("%s", string(prettyJSON.Bytes())))
-					} else {
-						fmt.Printf("%s\n", t.Fail("JSON Error: %s", err))
-					}
+				// We'll just try to print JSON
+				// if resp.Header.Get("Content-Type") == "application/json" {
+				prettyJSON := bytes.Buffer{}
+				err := json.Indent(&prettyJSON, body, "", "  ")
+				if err == nil {
+					fmt.Printf("%s\n%s\n", t.Title("Body:"), t.Text("%s", string(prettyJSON.Bytes())))
 				} else {
 					fmt.Printf("%s\n%s\n", t.Title("Body:"), t.Text("%s", string(body)))
+					fmt.Printf("%s %s \n", t.Title("JSON Error:"), t.Fail("%v", err))
 				}
 			} else {
 				fmt.Printf("%s %s\n", t.Title("Body:"), t.Text("Already Read!"))
@@ -128,98 +159,6 @@ func httpDecorate(f func(), resp *http.Response) func() {
 		f()
 
 	})
-}
-
-func Describe(d Describable, resp *http.Response, err error) {
-	if d != nil {
-		render(d.Describe, resp, err)
-	} else {
-		standardHTTPResponse(resp, err)
-	}
-}
-
-// type responseFlags
-func render(renderFunc func(), resp *http.Response, err error) {
-	if err == nil {
-		standardHTTPResponse(resp, err)
-		if renderFunc != nil {
-			renderFunc()
-		}
-	} else {
-		displayHTTPResponse(resp, true, true, true)
-		cmdError(err)
-	}
-}
-
-func standardHTTPResponse(resp *http.Response, err error) {
-	if err == nil {
-		if config.Debug() {
-			displayHTTPResponse(resp, true, true, true)
-		} else if config.Verbose() {
-			displayHTTPResponse(resp, true, false, false)
-		}
-	} else {
-		displayHTTPResponse(resp, true, true, true)
-		cmdError(err)
-	}
-}
-
-// This is for the HTTP direct commands.
-func doHTTPResponse(resp *http.Response, err error) {
-	if err == nil {
-		if config.Verbose() {
-			displayHTTPResponse(resp, true, true, true)
-		} else {
-			displayHTTPResponse(resp, true, false, false)
-		}
-	} else {
-		cmdError(err)
-	}
-}
-
-func displayHTTPResponse(resp *http.Response, status, headers, body bool) {
-
-	fmt.Printf("HTTP %s:%s\n", resp.Request.Method, resp.Request.URL)
-
-	if status {
-		w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
-		fmt.Fprintf(w, "%s\n", t.Title("Status\tLength\tEncoding\tUncompressed"))
-		fmt.Fprintf(w, "%s\t%s\n",
-			httpStatusFunc(resp.StatusCode)("%s", resp.Status),
-			t.Text("%d\t%#v\t%t", resp.ContentLength, resp.TransferEncoding, resp.Uncompressed))
-		w.Flush()
-	}
-
-	// HTTP response headers
-	if headers {
-		w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
-		fmt.Fprintf(w, "%s\n", t.Title("Header\tValue"))
-		for k, v := range resp.Header {
-			fmt.Fprintf(w, "%s\n", t.Text("%s\t%s", k, v))
-		}
-		w.Flush()
-	}
-
-	// HTTP Body and pretty print JSON.
-	if body {
-		body, err := ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err == nil {
-			if resp.Header.Get("Content-Type") == "application/json" {
-				// if resp.StatusCode < 300 {
-				prettyJson := bytes.Buffer{}
-				err := json.Indent(&prettyJson, body, "", "  ")
-				if err == nil {
-					fmt.Printf("%s\n%s\n", t.Title("Body:"), t.Text("%s", string(prettyJson.Bytes())))
-				} else {
-					fmt.Printf("%s\n", t.Fail("JSON Error: %s", err))
-				}
-			} else {
-				fmt.Printf("%s\n%s\n", t.Title("Body:"), t.Text("%s", string(body)))
-			}
-		}
-	}
-
 }
 
 func httpStatusFunc(httpStatus int) (f t.ColorSprintfFunc) {
