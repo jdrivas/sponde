@@ -40,10 +40,13 @@ import (
 // There are two basic display functions: List and Describe.
 // Not every data object supports both. Generally, they
 // all spport List, and some also support Describe.
+
+// Listable suppots List()
 type Listable interface {
 	List()
 }
 
+// Describable supports Describe()
 type Describable interface {
 	Describe()
 }
@@ -59,12 +62,18 @@ func List(d Listable, resp *http.Response, err error) {
 	render(renderer, resp, err)
 }
 
+// Describe provides a detailed descript of the object.
 func Describe(d Describable, resp *http.Response, err error) {
 	renderer := func() {}
 	if d != nil {
 		renderer = d.Describe
 	}
 	render(renderer, resp, err)
+}
+
+// Display dispoays only the resp and error through the normal pipeline
+func Display(resp *http.Response, err error) {
+	render(func() {}, resp, err)
 }
 
 // This is for the HTTP direct commands which have jh ojects.
@@ -85,7 +94,7 @@ func render(renderer func(), resp *http.Response, err error) {
 		if err == nil {
 			errorDecorate(renderer, err)()
 		} else {
-			shortHTTPDecorate((errorDecorate(renderer, err)), resp)()
+			errorHTTPDecorate((errorDecorate(renderer, err)), resp)()
 		}
 	}
 }
@@ -119,6 +128,27 @@ func shortHTTPDecorate(f func(), resp *http.Response) func() {
 			body, err := ioutil.ReadAll(resp.Body)
 			resp.Body.Close()
 			if err == nil && resp.StatusCode != http.StatusNoContent {
+				// m, err := getMessage(body)
+				// if err == nil && m.Message != "" {
+				// 	fmt.Printf("%s %s\n", t.Title("Message:"), t.Alert(m.Message))
+				// }
+				prettyPrintBody(body)
+			}
+		}
+
+		f()
+	})
+}
+
+func errorHTTPDecorate(f func(), resp *http.Response) func() {
+	return (func() {
+		if resp == nil {
+			nilResp()
+		} else {
+			fmt.Printf("%s %s\n", t.Title("HTTP Response: "), httpStatusFunc(resp.StatusCode)("%s", resp.Status))
+			body, err := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err == nil && resp.StatusCode != http.StatusNoContent {
 				m, err := getMessage(body)
 				if err == nil && m.Message != "" {
 					fmt.Printf("%s %s\n", t.Title("Message:"), t.Alert(m.Message))
@@ -130,6 +160,8 @@ func shortHTTPDecorate(f func(), resp *http.Response) func() {
 	})
 }
 
+// Message is a simple struct to pull out JSON that is often
+// embedded in error returns.
 type Message struct {
 	Status  int    `json:"status"`
 	Message string `json:"message"`
@@ -154,33 +186,40 @@ func httpDecorate(f func(), resp *http.Response) func() {
 			}
 			w.Flush()
 
-			// HTTP Body and pretty print JSON.
 			body, err := ioutil.ReadAll(resp.Body)
 			resp.Body.Close()
 			if err == nil && resp.StatusCode != http.StatusNoContent {
-				// We'll just try to print JSON
-
-				prettyJSON := bytes.Buffer{}
-				err := json.Indent(&prettyJSON, body, "", "  ")
-				if err == nil {
-
-					// Yes, this is totally gratuitous.
-					m, err := getMessage(body)
-					if err == nil && m.Message != "" {
-						fmt.Printf("%s %s\n", t.Title("Message:"), t.Alert(m.Message))
-					}
-
-					// Print out the body
-					fmt.Printf("%s\n%s\n", t.Title("Body:"), t.Text("%s", string(prettyJSON.Bytes())))
-				} else {
-					fmt.Printf("%s\n%s\n", t.Title("Body:"), t.Text("%s", string(body)))
-					fmt.Printf("%s %s \n", t.Title("JSON Error:"), t.Fail("%v", err))
-				}
+				prettyPrintBody(body)
 			} else {
-				if err != nil {
-					fmt.Printf("%s %s\n", t.Title("Body:"), t.Text("%v", err))
-				}
+				fmt.Printf("%s %s\n", t.Title("Body Read Error:"), t.Text("%v", err))
 			}
+			// HTTP Body and pretty print JSON.
+			// body, err := ioutil.ReadAll(resp.Body)
+			// resp.Body.Close()
+			// if err == nil && resp.StatusCode != http.StatusNoContent {
+			// 	// We'll just try to print JSON
+
+			// 	prettyJSON := bytes.Buffer{}
+			// 	err := json.Indent(&prettyJSON, body, "", "  ")
+			// 	if err == nil {
+
+			// 		// Yes, this is totally gratuitous.
+			// 		m, err := getMessage(body)
+			// 		if err == nil && m.Message != "" {
+			// 			fmt.Printf("%s %s\n", t.Title("Message:"), t.Alert(m.Message))
+			// 		}
+
+			// 		// Print out the body
+			// 		fmt.Printf("%s\n%s\n", t.Title("RESP JSON Body:"), t.Text("%s", string(prettyJSON.Bytes())))
+			// 	} else {
+			// 		fmt.Printf("%s\n%s\n", t.Title("RESP Body:"), t.Text("%s", string(body)))
+			// 		fmt.Printf("%s %s \n", t.Title("JSON Error:"), t.Fail("%v", err))
+			// 	}
+			// } else {
+			// 	if err != nil {
+			// 		fmt.Printf("%s %s\n", t.Title("Body Read Error:"), t.Text("%v", err))
+			// 	}
+			// }
 
 		} else {
 			nilResp()
@@ -194,6 +233,27 @@ func httpDecorate(f func(), resp *http.Response) func() {
 func getMessage(jsonString []byte) (m Message, err error) {
 	err = json.Unmarshal(jsonString, &m)
 	return m, err
+}
+
+// Assume it's json and try to pretty print.
+func prettyPrintBody(body []byte) {
+	prettyJSON := bytes.Buffer{}
+	err := json.Indent(&prettyJSON, body, "", "  ")
+	if err == nil {
+
+		// Yes, this is totally gratuitous.
+		m, err := getMessage(body)
+		if err == nil && m.Message != "" {
+			fmt.Printf("%s %s\n", t.Title("Message:"), t.Alert(m.Message))
+		}
+
+		// Print out the body
+		fmt.Printf("%s\n%s\n", t.Title("RESP JSON Body:"), t.Text("%s", string(prettyJSON.Bytes())))
+	} else {
+		fmt.Printf("%s\n%s\n", t.Title("RESP Body:"), t.Text("%s", string(body)))
+		fmt.Printf("%s %s \n", t.Title("JSON Error:"), t.Fail("%v", err))
+	}
+
 }
 
 func httpStatusFunc(httpStatus int) (f t.ColorSprintfFunc) {

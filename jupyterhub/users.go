@@ -19,6 +19,7 @@ type User struct {
 	Servers      map[string]Server `json:"servers"`
 }
 
+// Description
 type Server struct {
 	Name         string      `json:"name"`
 	Ready        bool        `json:"ready"`
@@ -30,10 +31,12 @@ type Server struct {
 	State        StateValues `json:"state"`
 }
 
+// StateValues are returned from the sever.
 type StateValues struct {
-	PodName string `json:"progress_url"`
+	PodName string `json:"pod_name"`
 }
 
+// UpdatedUser is the object to send to the server with udser updates.
 type UpdatedUser struct {
 	Name  string `json:"name"`
 	Admin bool   `json:"admin"`
@@ -79,11 +82,16 @@ func GetAllUsers() (users UserList, resp *http.Response, err error) {
 	return users, resp, err
 }
 
+// UpdateUser changes a users name or admin status. Use the UpdatedUser object to specify and you only need
+// to fill in the values that are changing, though it all works with a full object.
 func UpdateUser(name string, user UpdatedUser) (returnUser UpdatedUser, resp *http.Response, err error) {
 	resp, err = Patch(fmt.Sprintf("/users/%s", name), user, &returnUser)
 	return returnUser, resp, err
 }
 
+//
+// User Tokens
+//
 type Tokens struct {
 	APITokens   []APIToken   `json:"api_tokens"`
 	OAuthTokens []OAuthToken `json:"oauth_tokens"`
@@ -112,7 +120,28 @@ type OAuthToken struct {
 	OAuthClient  string `json:"oauth_client"`
 }
 
+// GetTokens returns all of the tokens for the specified users
 func GetTokens(username string) (token Tokens, resp *http.Response, err error) {
 	resp, err = Get(fmt.Sprintf("/users/%s/tokens", username), &token)
 	return token, resp, err
+}
+
+// GetToken returns the details of a usres particular token given by username and tokenID.
+func GetToken(username, tokenID string) (token APIToken, resp *http.Response, err error) {
+	resp, err = Get(fmt.Sprintf("/users/%s/tokens/%s", username, tokenID), &token)
+	return token, resp, err
+}
+
+// CreateToken will create a single APIToken from the Template provided,
+// for the user and return the newly created token.
+// Only Note will be saved in the new token.
+func CreateToken(username string, newToken APIToken) (createdToken APIToken, resp *http.Response, err error) {
+	resp, err = Post(fmt.Sprintf("/users/%s/tokens", username), newToken, &createdToken)
+	return createdToken, resp, err
+}
+
+// DeleteToken deletes the token identified by usernamd and tokenID.
+func DeleteToken(username, tokenID string) (resp *http.Response, err error) {
+	resp, err = Delete(fmt.Sprintf("/users/%s/tokens/%s", username, tokenID), nil, nil)
+	return resp, err
 }

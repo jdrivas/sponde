@@ -56,10 +56,10 @@ func SendJSONString(method, cmd string, content string, result interface{}) (res
 		prettyJSON := bytes.Buffer{}
 		err := json.Indent(&prettyJSON, []byte(content), "", "  ")
 		if err == nil {
-			fmt.Printf("%s\n%s\n", t.Title("JSON Body:"), t.Text(string(prettyJSON.Bytes())))
+			fmt.Printf("%s\n%s\n", t.Title("Request Content JSON Body:"), t.Text(string(prettyJSON.Bytes())))
 		} else {
 			fmt.Printf("%s %s \n", t.Title("JSON Error:"), t.Fail("%v", err))
-			fmt.Printf("%s\n%s\n", t.Title("Body:"), t.Text(content))
+			fmt.Printf("%s\n%s\n", t.Title("Req Content Body:"), t.Text(content))
 		}
 
 	}

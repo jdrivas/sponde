@@ -31,5 +31,5 @@ func truthyString(v string) (bool, error) {
 			return false, err
 		}
 	}
-	return false, fmt.Errorf("couldn't make a truth value from \"%s\"; try one of: %s.", v, allValues)
+	return false, fmt.Errorf("couldn't make a truth value from \"%s\"; try one of: %s", v, allValues)
 }

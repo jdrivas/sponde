@@ -11,11 +11,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ListUsers prints a consice one line at a time reprsentation of
-// users.
-
+// UserList is a proxy for jupyterhub/UserList
 type UserList jh.UserList
 
+// List prints a consice one line at a time reprsentation of
+// users.
 func (ul UserList) List() {
 	users := jh.UserList(ul)
 	if len(users) > 0 {
@@ -34,7 +34,7 @@ func (ul UserList) List() {
 	}
 }
 
-// DescribeUsers prints all of the infomration there is about each user.
+// Describe prints all of the infomration there is about each user in the list.
 func (ul UserList) Describe() {
 	users := jh.UserList(ul)
 	for _, u := range users {
@@ -51,7 +51,7 @@ func (ul UserList) Describe() {
 			fmt.Printf("Servers\n")
 			for _, s := range u.Servers {
 				w = ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
-				fmt.Fprintf(w, "Name\tReady\tPending\tStarted\tLast Activity\n")
+				fmt.Fprintf(w, "Name\tPdd\tReady\tPending\tStarted\tLast Activity\n")
 				name := "<empty>"
 				if s.Name != "" {
 					name = s.Name
@@ -60,7 +60,7 @@ func (ul UserList) Describe() {
 				if s.Pending != "" {
 					pending = u.Pending
 				}
-				fmt.Fprintf(w, "%s\t%t\t%s\t%s\t%s\n", name, s.Ready, pending, s.Started, s.LastActivity)
+				fmt.Fprintf(w, "%s\t%s\t%t\t%s\t%s\t%s\n", name, s.State.PodName, s.Ready, pending, s.Started, s.LastActivity)
 				w.Flush()
 			}
 		}
@@ -111,8 +111,10 @@ func doUsers(listFunc func(UserList, *http.Response, error)) func(*cobra.Command
 	}
 }
 
+// UpdatedUser is a proxy to add methods to jupyterhub/UpdatedUser
 type UpdatedUser jh.UpdatedUser
 
+// List displays the newely updated user details.
 func (u UpdatedUser) List() {
 	user := jh.UpdatedUser(u)
 	w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
@@ -121,8 +123,10 @@ func (u UpdatedUser) List() {
 	w.Flush()
 }
 
+// Tokens is a proxy to add methhods to jupyterhub/Tokens
 type Tokens jh.Tokens
 
+// List tokens display a lit of API and OAuthTokens assocaited with a user.
 func (ts Tokens) List() {
 	tokens := jh.Tokens(ts)
 	w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
@@ -135,5 +139,18 @@ func (ts Tokens) List() {
 		tk.Expires = checkForEmptyString(tk.Expires)
 		fmt.Fprintf(w, "%s\n", t.Text("%s\t%s\t%s\t%s\t%s\t%s", tk.ID, tk.Kind, tk.Created, tk.Expires, tk.LastActivity, tk.OAuthClient))
 	}
+	w.Flush()
+}
+
+// APIToken is a proxy to add methods to jupyterhub/APIToken
+type APIToken jh.APIToken
+
+// Describe displays a single APIToken
+func (tk APIToken) Describe() {
+	token := jh.APIToken(tk)
+	w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
+	fmt.Fprintf(w, "%s\n", t.Title("ID\tKind\tCreated\tExpires\tLast Activity\tNote (OAuth client)"))
+	token.Expires = checkForEmptyString(token.Expires)
+	fmt.Fprintf(w, "%s\n", t.Text("%s\t%s\t%s\t%s\t%s\t%s", token.ID, token.Kind, token.Created, token.Expires, token.LastActivity, token.Note))
 	w.Flush()
 }

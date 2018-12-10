@@ -21,6 +21,24 @@ func buildJupyterHub(mode runMode) {
 
 	// Util
 	rootCmd.AddCommand(&cobra.Command{
+		Use:   "show-tokens",
+		Short: "Toggle display of tokens",
+		Long:  "Toggles displapy of tokens in application. This will have no effect if the configuration variable neverShowTokens has been set.",
+		Run: func(cmd *cobra.Command, args []string) {
+			config.SetShowTokens(!config.GetShowTokens())
+			if config.GetShowTokens() {
+				fmt.Printf("Showing tokens on.\n")
+			} else {
+				fmt.Printf("Showing tokens off.\n")
+			}
+		},
+	})
+	// To make show-tokens command, and the underlying config file variables
+	// durable on commands.
+
+	cobra.OnInitialize(initShowTokensOnce)
+
+	rootCmd.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "The version of JupyterHub.",
 		Long:  "Returns the version number of the running JupyterHub.",
@@ -81,23 +99,6 @@ func buildJupyterHub(mode runMode) {
 	listCmd.AddCommand(listConnsCmd)
 	// This flag should only work on the single command
 	listConnsCmd.PersistentFlags().BoolVarP(&showTokensOnce, showTokensOnceFlagKey, "s", false, "Show tokens when listing connecitions.")
-
-	rootCmd.AddCommand(&cobra.Command{
-		Use:   "show-tokens",
-		Short: "Toggle display of tokens",
-		Long:  "Toggles displapy of tokens in application. This will have no effect if the configuration variable neverShowTokens has been set.",
-		Run: func(cmd *cobra.Command, args []string) {
-			config.SetShowTokens(!config.GetShowTokens())
-			if config.GetShowTokens() {
-				fmt.Printf("Showing tokens on.\n")
-			} else {
-				fmt.Printf("Showing tokens off.\n")
-			}
-		},
-	})
-	// To make show-tokens command, and the underlying config file variables
-	// durable on commands.
-	cobra.OnInitialize(initShowTokensOnce)
 
 	// Proxy Routes
 	var proxyCmd = &cobra.Command{
@@ -178,7 +179,7 @@ If no user-id is provided then all Hub users are described.`,
 	})
 
 	// Usrs Tokens
-	tokenCmd := &cobra.Command{
+	listTokensCmd := &cobra.Command{
 		// listCmd.AddCommand(&cobra.Command{
 		Use:     "tokens",
 		Aliases: []string{"token"},
@@ -192,8 +193,50 @@ The API, and so this command does not actually obtain the token itself.`,
 			List(Tokens(tokens), resp, err)
 		},
 	}
-	listCmd.AddCommand(tokenCmd)
-	tokenCmd.SetUsageTemplate(userOneArgsTemplate)
+	listCmd.AddCommand(listTokensCmd)
+	listTokensCmd.SetUsageTemplate(userOneArgsTemplate)
+
+	describeTokenCmd := &cobra.Command{
+		Use:   "token",
+		Short: "Detail for a security tokens",
+		Long:  `Provides detail about a specific token for <username> and <token-id>.`,
+		Args:  cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			token, resp, err := jh.GetToken(args[0], args[1])
+			Describe(APIToken(token), resp, err)
+		},
+	}
+	describeCmd.AddCommand(describeTokenCmd)
+
+	createTokenCmd := &cobra.Command{
+		Use:   "token",
+		Short: "Create an API token for a user.",
+		Long:  `Creates a new API token for <username> with identifying text <note>.`,
+		Args:  cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			name := args[0]
+			notes := strings.Join(args[1:], " ")
+			tokenTemplate := jh.APIToken{
+				User: name,
+				Note: notes,
+			}
+			token, resp, err := jh.CreateToken(name, tokenTemplate)
+			Describe(APIToken(token), resp, err)
+		},
+	}
+	createCmd.AddCommand(createTokenCmd)
+
+	deleteTokenCmd := &cobra.Command{
+		Use:   "token",
+		Short: "Delete a users secrutity token",
+		Long:  `Deltes the token specified by <username> and <token-id>`,
+		Args:  cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			resp, err := jh.DeleteToken(args[0], args[1])
+			Display(resp, err)
+		},
+	}
+	deleteCmd.AddCommand(deleteTokenCmd)
 
 	// Groups
 	listCmd.AddCommand(&cobra.Command{
@@ -224,7 +267,7 @@ The API, and so this command does not actually obtain the token itself.`,
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			resp, err := jh.CreateGroup(args[0])
-			List(nil, resp, err)
+			Display(resp, err)
 		},
 	})
 
@@ -267,7 +310,7 @@ The API, and so this command does not actually obtain the token itself.`,
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			resp, err := jh.DeleteGroup(args[0])
-			List(nil, resp, err)
+			Display(resp, err)
 		},
 	})
 
