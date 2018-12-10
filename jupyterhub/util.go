@@ -71,18 +71,18 @@ func SendJSONString(method, cmd string, content string, result interface{}) (res
 	return resp, err
 }
 
-//
-// Private API
-//
-
 // TODO: Merge the Sends into one.
 // They all take an interface to content and result.
 // Check type on content, if it's a string, then send it along
 // if it's not then marshal
 func sendObject(method, cmd string, content interface{}, result interface{}) (resp *http.Response, err error) {
+
+	//  No content, jsut send.
 	if content == nil {
 		resp, err = Send(method, cmd, result)
 	} else {
+
+		// Otherwise, arshal the object ..,
 		var b []byte
 		b, err = json.Marshal(content)
 		if err == nil {
@@ -97,29 +97,17 @@ func sendObject(method, cmd string, content interface{}, result interface{}) (re
 					fmt.Printf("%s %s\n", t.Title("Sending JSON:"), t.Text(string(b)))
 				}
 			}
+
+			// ... and send it
 			resp, err = SendJSONString(method, cmd, string(b), result)
 		}
 	}
-	// if err == nil {
-	// 	if viper.GetBool("debug") {
-	// 		if err = checkReturnCode(*resp); err == nil {
-	// 			body, err1 := ioutil.ReadAll(resp.Body)
-	// 			err = err1
-	// 			resp.Body.Close()
-	// 			fmt.Printf("Response body: %s\n", body)
-	// 		}
-	// 	}
-	// }
 	return resp, err
 }
 
-func jhAPIURL(cmd string) string {
-	return fmt.Sprintf("%s%s", config.GetHubURL(), cmd)
-}
-
-func jhReq(method, cmd string, body io.Reader) (*http.Request, error) {
-	return http.NewRequest(method, jhAPIURL(cmd), body)
-}
+//
+// Private API
+//
 
 func newRequest(method, cmd string, body io.Reader) *http.Request {
 	req, err := jhReq(method, cmd, body)
@@ -160,6 +148,14 @@ func sendReq(req *http.Request, result interface{}) (resp *http.Response, err er
 		}
 	}
 	return resp, err
+}
+
+func jhAPIURL(cmd string) string {
+	return fmt.Sprintf("%s%s", config.GetHubURL(), cmd)
+}
+
+func jhReq(method, cmd string, body io.Reader) (*http.Request, error) {
+	return http.NewRequest(method, jhAPIURL(cmd), body)
 }
 
 // This eats the body in the response, but returns it in the

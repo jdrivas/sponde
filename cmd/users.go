@@ -18,16 +18,20 @@ type UserList jh.UserList
 
 func (ul UserList) List() {
 	users := jh.UserList(ul)
-	w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
-	fmt.Fprintf(w, "%s\n", t.Title("Name\tAdmin\tGroups\tCreated\tServer\tLast"))
-	for _, u := range users {
-		serverURL := "<empty>"
-		if u.ServerURL != "" {
-			serverURL = u.ServerURL
+	if len(users) > 0 {
+		w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
+		fmt.Fprintf(w, "%s\n", t.Title("Name\tAdmin\tGroups\tCreated\tServer\tLast"))
+		for _, u := range users {
+			serverURL := "<empty>"
+			if u.ServerURL != "" {
+				serverURL = u.ServerURL
+			}
+			fmt.Fprintf(w, "%s\n", t.SubTitle("%s\t%t\t%v\t%s\t%s\t%s", u.Name, u.Admin, u.Groups, u.Created, serverURL, u.LastActivity))
 		}
-		fmt.Fprintf(w, "%s\n", t.SubTitle("%s\t%t\t%v\t%s\t%s\t%s", u.Name, u.Admin, u.Groups, u.Created, serverURL, u.LastActivity))
+		w.Flush()
+	} else {
+		fmt.Printf("There were no users.")
 	}
-	w.Flush()
 }
 
 // DescribeUsers prints all of the infomration there is about each user.
@@ -89,10 +93,9 @@ func doUsers(listFunc func(UserList, *http.Response, error)) func(*cobra.Command
 			users, resp, err = jh.GetAllUsers()
 		}
 
-		// Display uesrs if you have them
-		if len(users) > 0 {
-			listFunc(UserList(users), resp, err)
-		}
+		// Display users
+		listFunc(UserList(users), resp, err)
+
 		// Print an extra line if you have both
 		if len(users) > 0 && len(badNames) > 0 {
 			fmt.Println("")

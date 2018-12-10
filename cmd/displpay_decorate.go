@@ -72,13 +72,16 @@ func httpDisplay(resp *http.Response, err error) {
 	httpDecorate(errorDecorate(func() {}, err), resp)()
 }
 
+// private API
 func render(renderer func(), resp *http.Response, err error) {
+
 	switch {
 	case config.Debug():
 		httpDecorate((errorDecorate(renderer, err)), resp)()
 	case config.Verbose():
 		shortHTTPDecorate((errorDecorate(renderer, err)), resp)()
 	default:
+
 		if err == nil {
 			errorDecorate(renderer, err)()
 		} else {
