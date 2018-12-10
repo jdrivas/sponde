@@ -19,7 +19,7 @@ func (r Routes) List() {
 		for _, ri := range routes {
 			user := "<empty>"
 			if ri.Data.Hub && ri.Data.User != "" {
-				user = fmt.Sprintf("Hub : $s", ri.Data.User)
+				user = fmt.Sprintf("Hub : %s", ri.Data.User)
 			} else if ri.Data.Hub {
 				user = "Hub"
 			} else if ri.Data.User != "" {

@@ -20,13 +20,13 @@ func (ul UserList) List() {
 	users := jh.UserList(ul)
 	if len(users) > 0 {
 		w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
-		fmt.Fprintf(w, "%s\n", t.Title("Name\tAdmin\tGroups\tCreated\tServer\tLast"))
+		fmt.Fprintf(w, "%s\n", t.Title("Name\tAdmin\tGroups\tCreated\tPending\tServer\tLast"))
 		for _, u := range users {
 			serverURL := "<empty>"
 			if u.ServerURL != "" {
 				serverURL = u.ServerURL
 			}
-			fmt.Fprintf(w, "%s\n", t.SubTitle("%s\t%t\t%v\t%s\t%s\t%s", u.Name, u.Admin, u.Groups, u.Created, serverURL, u.LastActivity))
+			fmt.Fprintf(w, "%s\n", t.SubTitle("%s\t%t\t%v\t%s\t%s\t%s\t%s", u.Name, u.Admin, u.Groups, u.Created, u.Pending, serverURL, u.LastActivity))
 		}
 		w.Flush()
 	} else {
@@ -42,7 +42,7 @@ func (ul UserList) Describe() {
 		fmt.Fprintf(w, "Name\tKind\tAdmin\tServer\tCreated\tLast Activity\tPending\n")
 		pending := checkForEmptyString(u.Pending)
 		serverURL := checkForEmptyString(u.ServerURL)
-		fmt.Fprintf(w, "%s\t%s\n", t.Highlight("%s ", u.Name), t.Text("%s\t%t\t%s\t%s\t%s", u.Kind, u.Admin, serverURL, u.Created, u.LastActivity, pending))
+		fmt.Fprintf(w, "%s\t%s\n", t.Highlight("%s ", u.Name), t.Text("%s\t%t\t%s\t%s\t%s\t%s", u.Kind, u.Admin, serverURL, u.Created, u.LastActivity, pending))
 		w.Flush()
 		fmt.Println()
 		if len(u.Servers) == 0 {
