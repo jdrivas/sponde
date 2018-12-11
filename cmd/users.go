@@ -11,7 +11,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// UserList is a proxy for jupyterhub/UserList
+// User is a proxy for the jupyterhub/User.
+type User jh.User
+
+// UserList is a proxy for jh.UserList
 type UserList jh.UserList
 
 // List prints a consice one line at a time reprsentation of

@@ -5,8 +5,10 @@ import (
 	"net/http"
 )
 
+// UserList is a a collection of users.
 type UserList []User
 
+// User is the data the Hub provides for a user.
 type User struct {
 	Kind         string            `json:"kind"`
 	Name         string            `json:"name"`
@@ -19,7 +21,7 @@ type User struct {
 	Servers      map[string]Server `json:"servers"`
 }
 
-// Description
+// Server is the data for a Notebook server a user is running.
 type Server struct {
 	Name         string      `json:"name"`
 	Ready        bool        `json:"ready"`
@@ -89,14 +91,81 @@ func UpdateUser(name string, user UpdatedUser) (returnUser UpdatedUser, resp *ht
 	return returnUser, resp, err
 }
 
+// Servers
+
+// StartServer will attempt to start the named users server. Started will return true if
+// the serer is now started, or fase if start has been requested but not yet started.
+// As usual if something goes wrong, err != nil.
+func StartServer(username string) (started bool, resp *http.Response, err error) {
+	return startNotebookServer(fmt.Sprintf("/users/%s/server", username))
+}
+
+// StopServer will attempt to stop the named users server. Stp[[ed]] will return true if
+// the serer is now stopped, or false if start has been requested but not yet started.
+// As usual if something goes wrong, err != nil.
+func StopServer(username string) (stopped bool, resp *http.Response, err error) {
+	return stopNotebookServer(fmt.Sprintf("/users/%s/server", username))
+}
+
+// StartNamedServer works as StartServer for named servers. Servers are identified by a  user name and servername.
+func StartNamedServer(username, servername string) (started bool, resp *http.Response, err error) {
+	return startNotebookServer(fmt.Sprintf("/users/%s/server/%s", username, servername))
+}
+
+// StopNamedServer works as StopServer for named servers. Servers are identified by a user name and servername.
+func StopNamedServer(username, servername string) (started bool, resp *http.Response, err error) {
+	return stopNotebookServer(fmt.Sprintf("/users/%s/server/%s", username, servername))
+}
+
+// StartNteookbServer implements the logic for the two starts above taking the full command
+// for either named server or just the default server for a user.
+func startNotebookServer(cmd string) (started bool, resp *http.Response, err error) {
+	resp, err = Post(cmd, nil, nil)
+
+	// This is probably overkill.
+	// But captures the expected behavior
+	switch resp.StatusCode {
+	case http.StatusCreated:
+		started = true
+	case http.StatusAccepted:
+		started = false
+	default:
+		if err == nil {
+			err = fmt.Errorf("StartServer = got neither 201 Created, nor 202 Accepted, nor an error. I don't think your server started")
+		}
+	}
+	return started, resp, err
+}
+
+// StoptNteookbServer implements the logic for the two starts above taking the full command
+func stopNotebookServer(cmd string) (stopped bool, resp *http.Response, err error) {
+	resp, err = Delete(cmd, nil, nil)
+	switch resp.StatusCode {
+	case http.StatusNoContent:
+		stopped = true
+	case http.StatusAccepted:
+		stopped = false
+	default:
+		if err == nil {
+			err = fmt.Errorf("StartServer = got neither 204 NoContent, nor 202 Accepted, nor an error. I don't think your server may not be stopping")
+		}
+	}
+
+	return stopped, resp, err
+}
+
 //
 // User Tokens
 //
+
+// Tokens maps the return JSON to a users ollection of API tokens
+// and OAuth tokens.
 type Tokens struct {
 	APITokens   []APIToken   `json:"api_tokens"`
 	OAuthTokens []OAuthToken `json:"oauth_tokens"`
 }
 
+// APIToken is server data for a user owned API token.
 type APIToken struct {
 	Kind         string `json:"kind"`
 	ID           string `json:"id"`
@@ -108,6 +177,7 @@ type APIToken struct {
 	LastActivity string `json:"last_activity"`
 }
 
+// OAuthToken is the server data for a user associated OAuth credentialed token.
 type OAuthToken struct {
 	Kind         string `json:"kind"`
 	ID           string `json:"id"`

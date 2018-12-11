@@ -19,7 +19,9 @@ const showTokensOnceFlagKey = "show-tokens"
 
 func buildJupyterHub(mode runMode) {
 
-	// Util
+	//
+	// Application Util
+	//
 	rootCmd.AddCommand(&cobra.Command{
 		Use:   "show-tokens",
 		Short: "Toggle display of tokens",
@@ -33,30 +35,12 @@ func buildJupyterHub(mode runMode) {
 			}
 		},
 	})
-	// To make show-tokens command, and the underlying config file variables
-	// durable on commands.
-
+	// This ensures that the value of showTokens is only
+	// initialized once at program startup, from the viper configuration file,
+	// which means that in interactive mode, this "show-tokens"  command
+	// is durable across mulitple command invoations and not reset by reading
+	// in the configuration file.
 	cobra.OnInitialize(initShowTokensOnce)
-
-	rootCmd.AddCommand(&cobra.Command{
-		Use:   "version",
-		Short: "The version of JupyterHub.",
-		Long:  "Returns the version number of the running JupyterHub.",
-		Run: func(cmd *cobra.Command, args []string) {
-			version, resp, err := jh.GetVersion()
-			List(Version(version), resp, err)
-		},
-	})
-
-	rootCmd.AddCommand(&cobra.Command{
-		Use:   "info",
-		Short: "Hub operational details.",
-		Long:  "Returns detailed information about the running Hub",
-		Run: func(cmd *cobra.Command, args []string) {
-			info, resp, err := jh.GetInfo()
-			List(Info(info), resp, err)
-		},
-	})
 
 	// Connections
 	setCmd.AddCommand(&cobra.Command{
@@ -97,8 +81,34 @@ func buildJupyterHub(mode runMode) {
 		},
 	}
 	listCmd.AddCommand(listConnsCmd)
-	// This flag should only work on the single command
+	// This flag should only work on the single command ie. it's not durable across
+	// incocations in interactive mode.
 	listConnsCmd.PersistentFlags().BoolVarP(&showTokensOnce, showTokensOnceFlagKey, "s", false, "Show tokens when listing connecitions.")
+
+	//
+	// Hub Commands
+	//
+
+	// General Hub State
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "version",
+		Short: "The version of JupyterHub.",
+		Long:  "Returns the version number of the running JupyterHub.",
+		Run: func(cmd *cobra.Command, args []string) {
+			version, resp, err := jh.GetVersion()
+			List(Version(version), resp, err)
+		},
+	})
+
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "info",
+		Short: "Hub operational details.",
+		Long:  "Returns detailed information about the running Hub",
+		Run: func(cmd *cobra.Command, args []string) {
+			info, resp, err := jh.GetInfo()
+			List(Info(info), resp, err)
+		},
+	})
 
 	// Proxy Routes
 	var proxyCmd = &cobra.Command{
@@ -178,7 +188,7 @@ If no user-id is provided then all Hub users are described.`,
 		},
 	})
 
-	// Usrs Tokens
+	// User Tokens
 	listTokensCmd := &cobra.Command{
 		// listCmd.AddCommand(&cobra.Command{
 		Use:     "tokens",
@@ -238,6 +248,51 @@ The API, and so this command does not actually obtain the token itself.`,
 	}
 	deleteCmd.AddCommand(deleteTokenCmd)
 
+	// User Severs
+	startCmd.AddCommand(&cobra.Command{
+		Use:   "server",
+		Short: "Starts a users notebook server.",
+		Long:  "Starts a users notebook server and will tell you if the server has started yet.",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			started, resp, err := jh.StartServer(args[0])
+			DisplayF(displayServerStartedF(started, resp, err), resp, err)
+		},
+	})
+
+	stopCmd.AddCommand(&cobra.Command{
+		Use:   "server",
+		Short: "Stops a users notebook server.",
+		Long:  "Stops a users notebook server and will tell you if the server has started yet.",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			stopped, resp, err := jh.StopServer(args[0])
+			DisplayF(displayServerStartedF(stopped, resp, err), resp, err)
+		},
+	})
+
+	startCmd.AddCommand(&cobra.Command{
+		Use:   "named-server",
+		Short: "Start a named server",
+		Long:  "Start a named server for a user.",
+		Args:  cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			started, resp, err := jh.StartNamedServer(args[0], args[1])
+			DisplayF(displayServerStartedF(started, resp, err), resp, err)
+		},
+	})
+
+	stopCmd.AddCommand(&cobra.Command{
+		Use:   "named-server",
+		Short: "Command for managing named servers.",
+		Long:  "Command for starting/stopping named servers.",
+		Args:  cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			stopped, resp, err := jh.StopNamedServer(args[0], args[1])
+			DisplayF(displpayServerStopedF(stopped, resp, err), resp, err)
+		},
+	})
+
 	// Groups
 	listCmd.AddCommand(&cobra.Command{
 		Use:   "groups",
@@ -271,7 +326,18 @@ The API, and so this command does not actually obtain the token itself.`,
 		},
 	})
 
-	// Add a user to a group
+	deleteCmd.AddCommand(&cobra.Command{
+		Use:   "group",
+		Short: "Delete a group on the JupyterHub hub.",
+		Long:  "Delete a group on the JupyterHub hub. Requires a name as the first and only argument.",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			resp, err := jh.DeleteGroup(args[0])
+			Display(resp, err)
+		},
+	})
+
+	// Users in groups
 	addCmd.AddCommand(&cobra.Command{
 		Use:   "user",
 		Short: "Add user to group",
@@ -299,18 +365,6 @@ The API, and so this command does not actually obtain the token itself.`,
 			}
 			userGroup, resp, err := jh.RemoveUserFromGroup(ug)
 			List(UserGroup(userGroup), resp, err)
-		},
-	})
-
-	// Delete a group
-	deleteCmd.AddCommand(&cobra.Command{
-		Use:   "group",
-		Short: "Delete a group on the JupyterHub hub.",
-		Long:  "Delete a group on the JupyterHub hub. Requires a name as the first and only argument.",
-		Args:  cobra.MinimumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			resp, err := jh.DeleteGroup(args[0])
-			Display(resp, err)
 		},
 	})
 
@@ -373,16 +427,6 @@ The API, and so this command does not actually obtain the token itself.`,
 		},
 	})
 
-	// httpCmd.AddCommand(&cobra.Command{
-	// 	Use:   "post-content",
-	// 	Short: "HTTP POST <arg> to hub.",
-	// 	Long:  "Sends an HTTP POST <arg> to the Jupyterhub hub.",
-	// 	Args:  cobra.MinimumNArgs(2),
-	// 	Run: func(cmd *cobra.Command, args []string) {
-	// 		httpDisplay(jh.SendJSONString("POST", args[0], strings.Join(args[1:], " "), nil))
-	// 	},
-	// })
-
 	httpCmd.AddCommand(&cobra.Command{
 		Use:   "delete",
 		Short: "HTTP DELETE <arg> to hub.",
@@ -394,8 +438,6 @@ The API, and so this command does not actually obtain the token itself.`,
 	})
 
 }
-
-// var prevShowFlagSet = false
 
 // // Yes this is goofy.
 // // We want the flag to only effect once, not permentaly

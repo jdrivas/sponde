@@ -16,7 +16,7 @@ import (
 // We want to decorate List and Describe with some context dependent
 // display of the HTTP response and any errors.
 //
-// List or Describe are created as methods on objects that are mirror to the
+// List, Describe are created as methods on objects that are mirror to the
 // jupyterhub objects. We want to use method displatch to deal with the
 // different kinds of objects and sicne we can't add functions outside of
 // a package, we'll create mirror types.
@@ -28,16 +28,19 @@ import (
 //   groups, resp, err := jh.GetGroups()
 //   List(Groups(groups), resp, err)
 //
-// The reason we don't call the  method directly o group is that
-// we want to decorate the output with resp and error display depending
-// on: error condition, verbose vs. debug etc. Also, we want the same display
-// output in those cases where the is no object returned from the jh functions (e.g. jh.GetGroups).
+// The method's are not called directly to alllow decorattion of the output with resp and
+// error display dependent  on: error condition, verbose vs. debug etc.
+// Also, we want the same display output in those cases where the is no object returned
+// from the jh functions (e.g. jh.GetGroups).
+//
+// Display() is a method that is called when there is only an http.Resoionse and error returned.
+// This is typical, for example, on Delete calls.
 
 //
-// To do this, List(...) and Describe(...) both call render() which sets up
+// To do this, List(...) and Describe(...) , Display(...) all call render() which sets up
 // a decorotor pipeline as needed.
 
-// There are two basic display functions: List and Describe.
+// There are two basic object display functions: List and Describe.
 // Not every data object supports both. Generally, they
 // all spport List, and some also support Describe.
 
@@ -62,7 +65,7 @@ func List(d Listable, resp *http.Response, err error) {
 	render(renderer, resp, err)
 }
 
-// Describe provides a detailed descript of the object.
+// Describe provides detailed output on the object.
 func Describe(d Describable, resp *http.Response, err error) {
 	renderer := func() {}
 	if d != nil {
@@ -71,14 +74,48 @@ func Describe(d Describable, resp *http.Response, err error) {
 	render(renderer, resp, err)
 }
 
-// Display dispoays only the resp and error through the normal pipeline
+// Display dispolays only the resp and error through the normal pipeline
 func Display(resp *http.Response, err error) {
 	render(func() {}, resp, err)
+}
+
+// DisplayF calls the displayRenderer function as part of the standard render pipeline.
+// This is useful for printing out status information bracketed by the usual
+// verbose/debugt etc. influenced response and error output from the normal pipeline.
+func DisplayF(displayRenderer func(), resp *http.Response, err error) {
+	render(displayRenderer, resp, err)
+
 }
 
 // This is for the HTTP direct commands which have jh ojects.
 func httpDisplay(resp *http.Response, err error) {
 	httpDecorate(errorDecorate(func() {}, err), resp)()
+}
+
+func displayServerStartedF(started bool, resp *http.Response, err error) func() {
+	return (func() {
+		result := t.Success("started")
+		if started == false {
+			result = t.Success("requested")
+			if err != nil {
+				result = t.Fail("probably not started")
+			}
+		}
+		fmt.Printf("%s %s\n", t.Title("Server"), result)
+	})
+}
+
+func displpayServerStopedF(stopped bool, resp *http.Response, err error) func() {
+	return (func() {
+		result := t.Success("stopped")
+		if stopped == false {
+			result = t.Success("requested")
+			if err != nil {
+				result = t.Fail("probably not stopped")
+			}
+		}
+		fmt.Printf("%s %s\n", t.Title("Server"), result)
+	})
 }
 
 // private API
@@ -193,34 +230,6 @@ func httpDecorate(f func(), resp *http.Response) func() {
 			} else {
 				fmt.Printf("%s %s\n", t.Title("Body Read Error:"), t.Text("%v", err))
 			}
-			// HTTP Body and pretty print JSON.
-			// body, err := ioutil.ReadAll(resp.Body)
-			// resp.Body.Close()
-			// if err == nil && resp.StatusCode != http.StatusNoContent {
-			// 	// We'll just try to print JSON
-
-			// 	prettyJSON := bytes.Buffer{}
-			// 	err := json.Indent(&prettyJSON, body, "", "  ")
-			// 	if err == nil {
-
-			// 		// Yes, this is totally gratuitous.
-			// 		m, err := getMessage(body)
-			// 		if err == nil && m.Message != "" {
-			// 			fmt.Printf("%s %s\n", t.Title("Message:"), t.Alert(m.Message))
-			// 		}
-
-			// 		// Print out the body
-			// 		fmt.Printf("%s\n%s\n", t.Title("RESP JSON Body:"), t.Text("%s", string(prettyJSON.Bytes())))
-			// 	} else {
-			// 		fmt.Printf("%s\n%s\n", t.Title("RESP Body:"), t.Text("%s", string(body)))
-			// 		fmt.Printf("%s %s \n", t.Title("JSON Error:"), t.Fail("%v", err))
-			// 	}
-			// } else {
-			// 	if err != nil {
-			// 		fmt.Printf("%s %s\n", t.Title("Body Read Error:"), t.Text("%v", err))
-			// 	}
-			// }
-
 		} else {
 			nilResp()
 		}

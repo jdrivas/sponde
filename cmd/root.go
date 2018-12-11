@@ -16,6 +16,7 @@ var (
 	rootCmd, setCmd, httpCmd, interactiveCmd   *cobra.Command
 	listCmd, describeCmd, createCmd, deleteCmd *cobra.Command
 	addCmd, updateCmd, removeCmd               *cobra.Command
+	startCmd, stopCmd                          *cobra.Command
 	cfgFile, tokenFlagVar, hubURLFlagVar       string
 	verbose, debug                             bool
 )
@@ -100,6 +101,20 @@ func buildRoot(mode runMode) {
 		Long:  "Provides a longer, more complete  description of a collection object.",
 	}
 	rootCmd.AddCommand(describeCmd)
+
+	startCmd = &cobra.Command{
+		Use:   "start",
+		Short: "Start some process on the hub.",
+		Long:  "Start some process or action on the hub, usually reporting back status.",
+	}
+	rootCmd.AddCommand(startCmd)
+
+	stopCmd = &cobra.Command{
+		Use:   "stop",
+		Short: "Stops some process on the hub.",
+		Long:  "Stops some process or action on the hub, usually reporting back status.",
+	}
+	rootCmd.AddCommand(stopCmd)
 
 	httpCmd = &cobra.Command{
 		Use:   "http",

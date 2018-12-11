@@ -40,16 +40,20 @@ func Delete(cmd string, content, result interface{}) (resp *http.Response, err e
 	return sendObject(http.MethodDelete, cmd, content, result)
 }
 
+// Patch works like Post, but uses the Delete verb.
 func Patch(cmd string, content, result interface{}) (resp *http.Response, err error) {
 	return sendObject(http.MethodPatch, cmd, content, result)
 }
 
+// Send works like Get but requires a verb as its first argument.
 func Send(method, cmd string, result interface{}) (resp *http.Response, err error) {
 	var req *http.Request
 	req = newRequest(method, cmd, nil)
 	return sendReq(req, result)
 }
 
+// SendJSONString takes a Method, a command and content in the form of a string that is expected
+// to be valid JSON. IT returns a JSON result like Get() above.
 func SendJSONString(method, cmd string, content string, result interface{}) (resp *http.Response, err error) {
 
 	if config.Verbose() {
@@ -112,7 +116,7 @@ func sendObject(method, cmd string, content interface{}, result interface{}) (re
 func newRequest(method, cmd string, body io.Reader) *http.Request {
 	req, err := jhReq(method, cmd, body)
 	if err != nil {
-		panic(fmt.Sprintf("Coulnd't generate HTTP request - $s\n", err.Error()))
+		panic(fmt.Sprintf("Coulnd't generate HTTP request - %s\n", err.Error()))
 	}
 
 	if viper.GetBool("debug") {
@@ -143,7 +147,7 @@ func sendReq(req *http.Request, result interface{}) (resp *http.Response, err er
 			fmt.Printf("HTTP: %s:%s\n", req.Method, req.URL)
 			fmt.Printf("Reponse: %s\n", resp.Status)
 		case config.Verbose():
-			fmt.Printf("%s %s\n", t.Title("Made HTTP Request:"), t.Text("%s", req.URL))
+			fmt.Printf("%s %s\n", t.Title("Made HTTP Request:"), t.Text("%s %s", req.Method, req.URL))
 			fmt.Printf("Reponse: %s\n", resp.Status)
 		}
 	}
