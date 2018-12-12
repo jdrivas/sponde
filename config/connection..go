@@ -7,9 +7,9 @@ import (
 )
 
 // Connection contains necessary data to connect to the JupytherHub API
-// 	HubURL - the connection end point
-//  token - the Token needed for Authorization.
-
+// HubURL - the connection end point
+// token - the Token needed for Authorization.
+// and a name for identification.
 type Connection struct {
 	Name   string
 	HubURL string
@@ -24,9 +24,9 @@ const (
 	defaultConnectionNameKey = "defaultConnection"
 )
 
-// These ARE contorlled here, but require binding to a viper configureationand
+// These ARE controlled here, but require binding to a viper configureationa varialbles,
 // so we share the name for the key here. The actual variable show be obtained
-// through here rather than in viper
+// through config rather than in viper
 const (
 	showTokensKey = "showTokens"
 )
@@ -60,26 +60,30 @@ func SetConnection(cName string) (err error) {
 	return err
 }
 
-// GetConnectionName return the connection's name
+// GetConnectionName return the current conenctions connection's name
 func GetConnectionName() string {
 	return getCurrentConnection().Name
 }
 
+// GetHubURL returns the current connections HubURL
 func GetHubURL() string {
 	return getCurrentConnection().HubURL
 }
 
+// GetToken gets the current connections Token
 func GetToken() string {
 	return getCurrentConnection().Token
 }
 
-// GetToken returns the connections Token. Will
+// GetSafeToken returns the connections Token. Will
 // Return an empty string if useEmpty is true
 // otherwise returns something to display.
 func GetSafeToken(useEmpty, useShowTokensOnce bool) string {
 	return MakeSafeTokenString(getCurrentConnection(), useEmpty, useShowTokensOnce)
 }
 
+// MakeSafeTokenString returns a display vlaue for the token that
+// is controlled by the state variables ShowTokens
 func MakeSafeTokenString(c Connection, useEmpty bool, useShowTokensOnce bool) (token string) {
 	token = c.Token
 	if c.Token == "" {
@@ -127,6 +131,7 @@ func GetConnectionNames() []string {
 	return cons
 }
 
+// GetConnections returns the defined named connections to a JupyterHub Hub.
 func GetConnections() []Connection {
 	consMap := getConnectionMap()
 	cons := []Connection{}
@@ -172,8 +177,6 @@ func getConnectionByName(name string) (conn Connection, ok bool) {
 	connsMap, ok := getConnectionMap()[name]
 	if ok {
 		hubURL, token := getMapValues(connsMap)
-		// hubURL := connsMap.(map[string]interface{})[huURLKey]
-		// token := connsMap.(map[string]interface{})[tokenKey]
 		conn = Connection{name, hubURL, token}
 	}
 	return conn, ok
@@ -187,10 +190,13 @@ func getConnectionMap() map[string]interface{} {
 // Show Tokens
 //
 
+// State variable to show connection tokens on the next call
+// this will reset to false once the connection has been displayed.
 func ShowTokensOnce() {
 	showTokensOnce = true
 }
 
+// Reset the ShowTokensOnce state to false.
 func ResetShowTokensOnce() {
 	showTokensOnce = false
 }
@@ -199,10 +205,12 @@ func getShowTokensOnce() bool {
 	return showTokensOnce
 }
 
+// Current values of the ShowTokensState
 func GetShowTokens() bool {
 	return *showTokens
 }
 
+// Set the status of the ShowTokens state.
 func SetShowTokens(st bool) {
 	*showTokens = st
 }

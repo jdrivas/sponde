@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
 
 	jh "github.com/jdrivas/sponde/jupyterhub"
 	t "github.com/jdrivas/sponde/term"
@@ -17,6 +18,14 @@ type User jh.User
 // UserList is a proxy for jh.UserList
 type UserList jh.UserList
 
+// ByName implements sort inteface for []jh.User
+type ByName UserList
+
+// Len implements sort interface
+func (a ByName) Len() int           { return len(a) }
+func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByName) Less(i, j int) bool { return a[i].Name < a[j].Name }
+
 // List prints a consice one line at a time reprsentation of
 // users.
 func (ul UserList) List() {
@@ -24,6 +33,7 @@ func (ul UserList) List() {
 	if len(users) > 0 {
 		w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
 		fmt.Fprintf(w, "%s\n", t.Title("Name\tAdmin\tGroups\tCreated\tPending\tServer\tLast"))
+		sort.Sort(ByName(users))
 		for _, u := range users {
 			serverURL := "<empty>"
 			if u.ServerURL != "" {
@@ -38,8 +48,11 @@ func (ul UserList) List() {
 }
 
 // Describe prints all of the infomration there is about each user in the list.
+// These are sorted by UserName and the servers are sorted by Name (this last
+// implemented with sort.Stings()
 func (ul UserList) Describe() {
 	users := jh.UserList(ul)
+	sort.Sort(ByName(users))
 	for _, u := range users {
 		w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
 		fmt.Fprintf(w, "Name\tKind\tAdmin\tServer\tCreated\tLast Activity\tPending\n")
@@ -52,9 +65,15 @@ func (ul UserList) Describe() {
 			fmt.Printf("No Servers\n")
 		} else {
 			fmt.Printf("Servers\n")
-			for _, s := range u.Servers {
-				w = ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
-				fmt.Fprintf(w, "Name\tPdd\tReady\tPending\tStarted\tLast Activity\n")
+			w = ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
+			fmt.Fprintf(w, "%s\n", t.Title("Name\tPdd\tReady\tPending\tStarted\tLast Activity"))
+			var serverNames []string
+			for k := range u.Servers {
+				serverNames = append(serverNames, k)
+			}
+			sort.Strings(serverNames)
+			for _, sn := range serverNames {
+				s := u.Servers[sn]
 				name := "<empty>"
 				if s.Name != "" {
 					name = s.Name
@@ -63,9 +82,9 @@ func (ul UserList) Describe() {
 				if s.Pending != "" {
 					pending = u.Pending
 				}
-				fmt.Fprintf(w, "%s\t%s\t%t\t%s\t%s\t%s\n", name, s.State.PodName, s.Ready, pending, s.Started, s.LastActivity)
-				w.Flush()
+				fmt.Fprintf(w, "%s\n", t.Text("%s\t%s\t%t\t%s\t%s\t%s", name, s.State.PodName, s.Ready, pending, s.Started, s.LastActivity))
 			}
+			w.Flush()
 		}
 		fmt.Println()
 	}
@@ -132,17 +151,21 @@ type Tokens jh.Tokens
 // List tokens display a lit of API and OAuthTokens assocaited with a user.
 func (ts Tokens) List() {
 	tokens := jh.Tokens(ts)
-	w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
-	fmt.Fprintf(w, "%s\n", t.Title("ID\tKind\tCreated\tExpires\tLast Activity\tNote (OAuth client)"))
-	for _, tk := range tokens.APITokens {
-		tk.Expires = checkForEmptyString(tk.Expires)
-		fmt.Fprintf(w, "%s\n", t.Text("%s\t%s\t%s\t%s\t%s\t%s", tk.ID, tk.Kind, tk.Created, tk.Expires, tk.LastActivity, tk.Note))
+	if len(tokens.APITokens) > 0 || len(tokens.OAuthTokens) > 0 {
+		w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
+		fmt.Fprintf(w, "%s\n", t.Title("ID\tKind\tCreated\tExpires\tLast Activity\tNote (OAuth client)"))
+		for _, tk := range tokens.APITokens {
+			tk.Expires = checkForEmptyString(tk.Expires)
+			fmt.Fprintf(w, "%s\n", t.Text("%s\t%s\t%s\t%s\t%s\t%s", tk.ID, tk.Kind, tk.Created, tk.Expires, tk.LastActivity, tk.Note))
+		}
+		for _, tk := range tokens.OAuthTokens {
+			tk.Expires = checkForEmptyString(tk.Expires)
+			fmt.Fprintf(w, "%s\n", t.Text("%s\t%s\t%s\t%s\t%s\t%s", tk.ID, tk.Kind, tk.Created, tk.Expires, tk.LastActivity, tk.OAuthClient))
+		}
+		w.Flush()
+	} else {
+		fmt.Printf("No users tokens.\n")
 	}
-	for _, tk := range tokens.OAuthTokens {
-		tk.Expires = checkForEmptyString(tk.Expires)
-		fmt.Fprintf(w, "%s\n", t.Text("%s\t%s\t%s\t%s\t%s\t%s", tk.ID, tk.Kind, tk.Created, tk.Expires, tk.LastActivity, tk.OAuthClient))
-	}
-	w.Flush()
 }
 
 // APIToken is a proxy to add methods to jupyterhub/APIToken

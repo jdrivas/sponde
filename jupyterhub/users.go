@@ -97,24 +97,24 @@ func UpdateUser(name string, user UpdatedUser) (returnUser UpdatedUser, resp *ht
 // the serer is now started, or fase if start has been requested but not yet started.
 // As usual if something goes wrong, err != nil.
 func StartServer(username string) (started bool, resp *http.Response, err error) {
-	return startNotebookServer(fmt.Sprintf("/users/%s/server", username))
+	return startNotebookServer(fmt.Sprintf("/users/%s/servers", username))
 }
 
 // StopServer will attempt to stop the named users server. Stp[[ed]] will return true if
 // the serer is now stopped, or false if start has been requested but not yet started.
 // As usual if something goes wrong, err != nil.
 func StopServer(username string) (stopped bool, resp *http.Response, err error) {
-	return stopNotebookServer(fmt.Sprintf("/users/%s/server", username))
+	return stopNotebookServer(fmt.Sprintf("/users/%s/servers", username))
 }
 
 // StartNamedServer works as StartServer for named servers. Servers are identified by a  user name and servername.
 func StartNamedServer(username, servername string) (started bool, resp *http.Response, err error) {
-	return startNotebookServer(fmt.Sprintf("/users/%s/server/%s", username, servername))
+	return startNotebookServer(fmt.Sprintf("/users/%s/servers/%s", username, servername))
 }
 
 // StopNamedServer works as StopServer for named servers. Servers are identified by a user name and servername.
 func StopNamedServer(username, servername string) (started bool, resp *http.Response, err error) {
-	return stopNotebookServer(fmt.Sprintf("/users/%s/server/%s", username, servername))
+	return stopNotebookServer(fmt.Sprintf("/users/%s/servers/%s", username, servername))
 }
 
 // StartNteookbServer implements the logic for the two starts above taking the full command
@@ -175,6 +175,7 @@ type APIToken struct {
 	Created      string `json:"created"`
 	Expires      string `json:"expires"`
 	LastActivity string `json:"last_activity"`
+	Token        string `json:"token"`
 }
 
 // OAuthToken is the server data for a user associated OAuth credentialed token.

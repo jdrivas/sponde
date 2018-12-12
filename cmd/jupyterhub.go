@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
@@ -107,6 +108,26 @@ func buildJupyterHub(mode runMode) {
 		Run: func(cmd *cobra.Command, args []string) {
 			info, resp, err := jh.GetInfo()
 			List(Info(info), resp, err)
+		},
+	})
+
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "shutdown",
+		Short: "Shutdown the hub",
+		Long:  "Shutdown the connected JupyterHub hub",
+		Run: func(cmd *cobra.Command, args []string) {
+			resp, err := jh.Shutdown()
+			display := func() {
+				var result string
+				switch resp.StatusCode {
+				case http.StatusAccepted:
+					result = t.Success("shutting down.")
+				default:
+					result = t.Fail("Probably not shutting down.")
+				}
+				fmt.Printf("%s %s\n", t.Title("Hub is"), result)
+			}
+			DisplayF(display, resp, err)
 		},
 	})
 
@@ -221,8 +242,11 @@ The API, and so this command does not actually obtain the token itself.`,
 	createTokenCmd := &cobra.Command{
 		Use:   "token",
 		Short: "Create an API token for a user.",
-		Long:  `Creates a new API token for <username> with identifying text <note>.`,
-		Args:  cobra.MinimumNArgs(2),
+		Long: `Creates a new API token for <username> with identifying text <note>.
+NOTE: This will display a token independently of the show-tokens command or any settings. 
+This is the only place where this token will be displayed and you cannot get it back 
+any other way. So, write it down if you intend to use it.`,
+		Args: cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			name := args[0]
 			notes := strings.Join(args[1:], " ")
@@ -231,7 +255,13 @@ The API, and so this command does not actually obtain the token itself.`,
 				Note: notes,
 			}
 			token, resp, err := jh.CreateToken(name, tokenTemplate)
-			Describe(APIToken(token), resp, err)
+			display := func() {
+				if err == nil && token.Token != "" {
+					fmt.Printf("\n%s %s\n\n", t.Success("New token:"), t.Title(token.Token))
+					APIToken(token).Describe()
+				}
+			}
+			DisplayF(display, resp, err)
 		},
 	}
 	createCmd.AddCommand(createTokenCmd)
@@ -239,7 +269,7 @@ The API, and so this command does not actually obtain the token itself.`,
 	deleteTokenCmd := &cobra.Command{
 		Use:   "token",
 		Short: "Delete a users secrutity token",
-		Long:  `Deltes the token specified by <username> and <token-id>`,
+		Long:  `Deletes the token specified by <username> and <token-id>`,
 		Args:  cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			resp, err := jh.DeleteToken(args[0], args[1])
@@ -389,8 +419,9 @@ The API, and so this command does not actually obtain the token itself.`,
 
 	// HTTP Util
 	httpCmd.AddCommand(&cobra.Command{
-		Use:   "send",
-		Short: "HTTP <method> <arg> to hub.",
+		Use:     "send",
+		Aliases: []string{"SEND"},
+		Short:   "HTTP <method> <arg> to hub.",
 		Long: `Sends an HTTP <method> <arg> to the Jupyterhub hub.
 			<method> is an HTTP verb (e.g. "GET")`,
 		Args: cobra.MinimumNArgs(2),
@@ -404,20 +435,22 @@ The API, and so this command does not actually obtain the token itself.`,
 	})
 
 	httpCmd.AddCommand(&cobra.Command{
-		Use:   "get",
-		Short: "HTTP GET <arg> to hub.",
-		Long:  "Sends an HTTP GET <arg> to the Jupyterhub hub.",
-		Args:  cobra.MinimumNArgs(1),
+		Use:     "get",
+		Aliases: []string{"GET"},
+		Short:   "HTTP GET <arg> to hub.",
+		Long:    "Sends an HTTP GET <arg> to the Jupyterhub hub.",
+		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			httpDisplay(jh.Get(args[0], nil))
 		},
 	})
 
 	httpCmd.AddCommand(&cobra.Command{
-		Use:   "post",
-		Short: "HTTP POST <arg> to hub.",
-		Long:  "Sends an HTTP POST <arg> to the Jupyterhub hub.",
-		Args:  cobra.MinimumNArgs(1),
+		Use:     "post",
+		Aliases: []string{"POST"},
+		Short:   "HTTP POST <arg> to hub.",
+		Long:    "Sends an HTTP POST <arg> to the Jupyterhub hub.",
+		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) > 1 {
 				httpDisplay(jh.Post(args[0], strings.Join(args[1:], " "), nil))
@@ -428,10 +461,11 @@ The API, and so this command does not actually obtain the token itself.`,
 	})
 
 	httpCmd.AddCommand(&cobra.Command{
-		Use:   "delete",
-		Short: "HTTP DELETE <arg> to hub.",
-		Long:  "Sends an HTTP DELETE <arg> to the Jupyterhub hub.",
-		Args:  cobra.MinimumNArgs(1),
+		Use:     "delete",
+		Aliases: []string{"DELETE"},
+		Short:   "HTTP DELETE <arg> to hub.",
+		Long:    "Sends an HTTP DELETE <arg> to the Jupyterhub hub.",
+		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			httpDisplay(jh.Delete(args[0], nil, nil))
 		},

@@ -13,12 +13,14 @@ import (
 )
 
 var (
-	rootCmd, setCmd, httpCmd, interactiveCmd   *cobra.Command
-	listCmd, describeCmd, createCmd, deleteCmd *cobra.Command
-	addCmd, updateCmd, removeCmd               *cobra.Command
-	startCmd, stopCmd                          *cobra.Command
-	cfgFile, tokenFlagVar, hubURLFlagVar       string
-	verbose, debug                             bool
+	rootCmd, setCmd, httpCmd, interactiveCmd           *cobra.Command
+	listCmd, describeCmd, createCmd, deleteCmd         *cobra.Command
+	addCmd, updateCmd, removeCmd                       *cobra.Command
+	startCmd, stopCmd                                  *cobra.Command
+	cfgFile, tokenFV, hubURLFV                         string
+	authClientIDFV, authClientSecretFV, authRedirectFV string
+
+	verbose, debug bool
 )
 
 const defaultHubURL = "http://127.0.0.1:8081"
@@ -145,7 +147,7 @@ func init() {
 
 	// Root is created here, rather than in build root, because for interative
 	// any root command flags set on the original command line should persist
-	// to each interactive command. They can  be explicitly overridden if needed.
+	// to _each_ interactive command. They can  be explicitly overridden if needed.
 	rootCmd = &cobra.Command{
 		Use:   "sponde",
 		Short: "Connect and report on a JupyterHub Hub.",
@@ -154,16 +156,19 @@ func init() {
 
 	// Flags available to everyone.
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file location. (default is .sponde.{yaml,json,toml}")
-	rootCmd.PersistentFlags().StringVarP(&tokenFlagVar, "token", "t", "", "connect to the JupyterhHub with this authorization token.")
-	rootCmd.PersistentFlags().StringVarP(&hubURLFlagVar, "hub-url", "u", "",
+
+	// Connection paramaters
+	rootCmd.PersistentFlags().StringVarP(&tokenFV, "token", "t", "", "connect to the JupyterhHub with this authorization token.")
+	rootCmd.PersistentFlags().StringVarP(&hubURLFV, "hub-url", "u", "",
 		fmt.Sprintf("connect to the JupyterhHub at this URL. (default is %s)", defaultHubURL))
 
-	// viper.BindPFlag("token", rootCmd.PersistentFlags().Lookup("token"))
-	// viper.BindPFlag("hubURL", rootCmd.PersistentFlags().Lookup("hub-url"))
+	//  Auth paramaters
+	rootCmd.PersistentFlags().StringVarP(&authRedirectFV, "auth-redirect-url", "", "", "OAuth redirect url - only need for auth commands.")
+	rootCmd.PersistentFlags().StringVarP(&authClientIDFV, "client-id", "", "", "OAuth client id - only need for auth commands.")
+	rootCmd.PersistentFlags().StringVarP(&authClientSecretFV, "client-secret", "", "", "OAuth client secret - only need for auth commands.")
 
-	// To suport configuration files to populate, as well as flags, use these viper variables
-	// to access this global state
-	// e.g. token := viper.GetBool("debug")
+	// To suport configuration files populating values, as well as flags, bind the variables to
+	// the viper instance.
 
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Describe what is happening as its happening.")
 	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
@@ -222,9 +227,9 @@ func initConnections() {
 
 	config.InitConnections(defaultHubURL)
 	if rootCmd.PersistentFlags().Lookup("hub-url").Changed {
-		config.UpdateDefaultHubURL(hubURLFlagVar)
+		config.UpdateDefaultHubURL(hubURLFV)
 	}
 	if rootCmd.PersistentFlags().Lookup("token").Changed {
-		config.UpdateDefaultToken(tokenFlagVar)
+		config.UpdateDefaultToken(tokenFV)
 	}
 }
