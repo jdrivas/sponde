@@ -9,10 +9,14 @@ import (
 	"github.com/juju/ansiterm"
 )
 
+// Groups are lists of groups of users kept on the hub.
 type Groups jh.Groups
 
-func (gs Groups) List() {
-	groups := jh.Groups(gs)
+// Group is the detail of the hub group.
+type Group jh.Group
+
+// List displays a list of groups
+func (groups Groups) List() {
 	w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
 	if len(groups) < 3 {
 		fmt.Fprintf(w, "%s\n", t.Title("Name\tKind\t# Users"))
@@ -28,10 +32,8 @@ func (gs Groups) List() {
 	w.Flush()
 }
 
-type Group jh.Group
-
-func (g Group) Describe() {
-	group := jh.Group(g)
+// Describe is a more detailed description of a group
+func (group Group) Describe() {
 	userNames := group.UserNames
 	firstUserName := "<no-users>"
 	if len(userNames) > 0 {
@@ -47,12 +49,13 @@ func (g Group) Describe() {
 	w.Flush()
 }
 
+// UserGroup captures the changes for an update.
 type UserGroup jh.UserGroup
 
+// List displays the details of a UserGroup
 func (userGroup UserGroup) List() {
-	ug := jh.UserGroup(userGroup)
 	w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
 	fmt.Fprintf(w, "%s\n", t.Title("Name\tUsers"))
-	fmt.Fprintf(w, "%s\n", t.SubTitle("%s\t%v", ug.Name, ug.UserNames))
+	fmt.Fprintf(w, "%s\n", t.SubTitle("%s\t%v", userGroup.Name, userGroup.UserNames))
 	w.Flush()
 }

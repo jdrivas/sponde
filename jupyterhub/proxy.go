@@ -7,12 +7,14 @@ import (
 // Routes are map of the routespec string to the Route information.
 type Routes map[string]Route
 
+// Route is the data the Hub provides on proxy routing.
 type Route struct {
 	RouteSpec string    `json:"routespec"`
 	Target    string    `json:"target"`
 	Data      RouteData `json:"data"`
 }
 
+// RouteData is the for whom detail.
 type RouteData struct {
 	User         string `json:"user"`
 	ServerName   string `json:"server_name"`
@@ -20,8 +22,8 @@ type RouteData struct {
 	LastActivity string `json:"last_activity"`
 }
 
-// GetUsers returns a list of logged in JupyterHub users.
-func GetProxy() (routes Routes, resp *http.Response, err error) {
-	resp, err = Get("/proxy", &routes)
+// GetProxy returns alist of routes maintained on the hub.
+func (conn Connection) GetProxy() (routes Routes, resp *http.Response, err error) {
+	resp, err = conn.Get("/proxy", &routes)
 	return routes, resp, err
 }

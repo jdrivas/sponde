@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/jdrivas/sponde/config"
 	t "github.com/jdrivas/sponde/term"
 	"github.com/spf13/viper"
 )
@@ -25,38 +24,38 @@ var (
 // aasumed to be JSON encoded into the  result object passed in.
 // If you pass in a []map[string]interface{}, you'll get a map of
 // objects back.
-func Get(cmd string, result interface{}) (resp *http.Response, err error) {
-	return Send(http.MethodGet, cmd, result)
+func (conn Connection) Get(cmd string, result interface{}) (resp *http.Response, err error) {
+	return conn.Send(http.MethodGet, cmd, result)
 }
 
 // Post works like Get, but uses the POST verb. Post also excepts a content object
 // which it will attempt to encode into JSON.
-func Post(cmd string, content, result interface{}) (resp *http.Response, err error) {
-	return sendObject(http.MethodPost, cmd, content, result)
+func (conn Connection) Post(cmd string, content, result interface{}) (resp *http.Response, err error) {
+	return conn.sendObject(http.MethodPost, cmd, content, result)
 }
 
 // Delete works like Post but uses the DELETE verb.
-func Delete(cmd string, content, result interface{}) (resp *http.Response, err error) {
-	return sendObject(http.MethodDelete, cmd, content, result)
+func (conn Connection) Delete(cmd string, content, result interface{}) (resp *http.Response, err error) {
+	return conn.sendObject(http.MethodDelete, cmd, content, result)
 }
 
 // Patch works like Post, but uses the Delete verb.
-func Patch(cmd string, content, result interface{}) (resp *http.Response, err error) {
-	return sendObject(http.MethodPatch, cmd, content, result)
+func (conn Connection) Patch(cmd string, content, result interface{}) (resp *http.Response, err error) {
+	return conn.sendObject(http.MethodPatch, cmd, content, result)
 }
 
 // Send works like Get but requires a verb as its first argument.
-func Send(method, cmd string, result interface{}) (resp *http.Response, err error) {
+func (conn Connection) Send(method, cmd string, result interface{}) (resp *http.Response, err error) {
 	var req *http.Request
-	req = newRequest(method, cmd, nil)
+	req = conn.newRequest(method, cmd, nil)
 	return sendReq(req, result)
 }
 
 // SendJSONString takes a Method, a command and content in the form of a string that is expected
 // to be valid JSON. IT returns a JSON result like Get() above.
-func SendJSONString(method, cmd string, content string, result interface{}) (resp *http.Response, err error) {
+func (conn Connection) SendJSONString(method, cmd string, content string, result interface{}) (resp *http.Response, err error) {
 
-	if config.Verbose() {
+	if verbose() {
 		prettyJSON := bytes.Buffer{}
 		err := json.Indent(&prettyJSON, []byte(content), "", "  ")
 		if err == nil {
@@ -69,7 +68,7 @@ func SendJSONString(method, cmd string, content string, result interface{}) (res
 	}
 
 	buff := bytes.NewBuffer([]byte(content))
-	req := newRequest(method, cmd, buff)
+	req := conn.newRequest(method, cmd, buff)
 	req.Header.Add("Content-Type", "application/json")
 	resp, err = sendReq(req, result)
 	return resp, err
@@ -79,18 +78,18 @@ func SendJSONString(method, cmd string, content string, result interface{}) (res
 // They all take an interface to content and result.
 // Check type on content, if it's a string, then send it along
 // if it's not then marshal
-func sendObject(method, cmd string, content interface{}, result interface{}) (resp *http.Response, err error) {
+func (conn Connection) sendObject(method, cmd string, content interface{}, result interface{}) (resp *http.Response, err error) {
 
 	//  No content, jsut send.
 	if content == nil {
-		resp, err = Send(method, cmd, result)
+		resp, err = conn.Send(method, cmd, result)
 	} else {
 
 		// Otherwise, arshal the object ..,
 		var b []byte
 		b, err = json.Marshal(content)
 		if err == nil {
-			if viper.GetBool("debug") {
+			if debug() {
 				prettyJSON := bytes.Buffer{}
 				errI := json.Indent(&prettyJSON, b, "", "  ")
 
@@ -103,7 +102,7 @@ func sendObject(method, cmd string, content interface{}, result interface{}) (re
 			}
 
 			// ... and send it
-			resp, err = SendJSONString(method, cmd, string(b), result)
+			resp, err = conn.SendJSONString(method, cmd, string(b), result)
 		}
 	}
 	return resp, err
@@ -113,17 +112,13 @@ func sendObject(method, cmd string, content interface{}, result interface{}) (re
 // Private API
 //
 
-func newRequest(method, cmd string, body io.Reader) *http.Request {
-	req, err := jhReq(method, cmd, body)
+func (conn Connection) newRequest(method, cmd string, body io.Reader) *http.Request {
+	req, err := conn.jhReq(method, cmd, body)
 	if err != nil {
 		panic(fmt.Sprintf("Coulnd't generate HTTP request - %s\n", err.Error()))
 	}
 
-	if viper.GetBool("debug") {
-		fmt.Printf("Using token authorization with token: %s\n", config.GetSafeToken(false, true))
-	}
-
-	req.Header.Add("Authorization", fmt.Sprintf("token %s", config.GetToken()))
+	req.Header.Add("Authorization", fmt.Sprintf("token %s", conn.Token))
 
 	return req
 }
@@ -141,12 +136,12 @@ func sendReq(req *http.Request, result interface{}) (resp *http.Response, err er
 		}
 
 		switch {
-		case config.Debug():
+		case debug():
 			fmt.Printf("%s %s\n", t.Title("Made HTTP Request:"), t.Text("%#v", req))
 			fmt.Printf("%s %s\n", t.Title("Response:"), t.Text("%#v", *resp))
 			fmt.Printf("HTTP: %s:%s\n", req.Method, req.URL)
 			fmt.Printf("Reponse: %s\n", resp.Status)
-		case config.Verbose():
+		case verbose():
 			fmt.Printf("%s %s\n", t.Title("Made HTTP Request:"), t.Text("%s %s", req.Method, req.URL))
 			fmt.Printf("Reponse: %s\n", resp.Status)
 		}
@@ -154,12 +149,12 @@ func sendReq(req *http.Request, result interface{}) (resp *http.Response, err er
 	return resp, err
 }
 
-func jhAPIURL(cmd string) string {
-	return fmt.Sprintf("%s%s", config.GetHubURL(), cmd)
+func (conn Connection) jhReq(method, cmd string, body io.Reader) (*http.Request, error) {
+	return http.NewRequest(method, conn.jhAPIURL(cmd), body)
 }
 
-func jhReq(method, cmd string, body io.Reader) (*http.Request, error) {
-	return http.NewRequest(method, jhAPIURL(cmd), body)
+func (conn Connection) jhAPIURL(cmd string) string {
+	return fmt.Sprintf("%s%s", conn.HubURL, cmd)
 }
 
 // This eats the body in the response, but returns it in the
@@ -170,7 +165,7 @@ func unmarshal(resp *http.Response, obj interface{}) (err error) {
 	resp.Body.Close()
 	if err == nil {
 
-		if viper.GetBool("debug") {
+		if debug() {
 			prettyJSON := bytes.Buffer{}
 			indentErr := json.Indent(&prettyJSON, body, "", " ")
 			if indentErr == nil {
@@ -182,7 +177,7 @@ func unmarshal(resp *http.Response, obj interface{}) (err error) {
 		}
 
 		json.Unmarshal(body, &obj)
-		if viper.GetBool("debug") {
+		if debug() {
 			fmt.Printf("%s %s\n", t.Title("Unmarshaled object: "), t.Text("%#v", obj))
 		}
 	}
@@ -214,4 +209,13 @@ func httpErrorMesg(resp http.Response, message string) error {
 
 func httpError(resp http.Response) error {
 	return httpErrorMesg(resp, "")
+}
+
+// TODO: replace this with proper logging ASAP.
+func debug() bool {
+	return viper.GetBool("debug")
+}
+
+func verbose() bool {
+	return viper.GetBool("verbose")
 }

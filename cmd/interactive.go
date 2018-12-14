@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/chzyer/readline"
-	"github.com/jdrivas/sponde/config"
 	t "github.com/jdrivas/sponde/term"
 
 	// "github.com/fatih/color"
@@ -23,9 +22,10 @@ var (
 	// if this is a problem, move the definition of the promptLoop moreCommands up
 	// to module scope and set it to false in the Run function directly below.
 	exitCmd = &cobra.Command{
-		Use:   "exit",
-		Short: "Exit from the application",
-		Long:  "Stop reading input lines and terminate the application.",
+		Use:     "exit",
+		Aliases: []string{"quit"},
+		Short:   "Exit from the application",
+		Long:    "Stop reading input lines and terminate the application.",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("\nGoodbye and thank you.\n")
 			os.Exit(0)
@@ -63,27 +63,45 @@ var (
 	}
 )
 
-// Parse the line and execute the command
-func doICommand(line string) (err error) {
-	// Start from clean slate each time.
+// Each time through the loop we rebuild the command tree
+//  and reinitialize the flags.
+func resetEnvironment() {
+
+	// Start fresh and rebuid the rootCommand tree.
 	rootCmd.ResetCommands()
 	buildRoot(interactive)
-
 	rootCmd.AddCommand(exitCmd)
 	rootCmd.AddCommand(verboseCmd)
 	rootCmd.AddCommand(debugCmd)
 
+	// initialize the flags on the tree
+	initFlags()
+	// This is only here to reset the prmopt
+	// TODO: The connection handling logicis is
+	// a disaster. Fix it.
+	initConnectionWithFlags()
+}
+
+// Parse the line and execute the command
+func doICommand(line string) (err error) {
+
 	rootCmd.SetArgs(strings.Split(line, " "))
 	err = rootCmd.Execute()
+
+	resetEnvironment()
 	return err
 }
 
 func promptLoop(process func(string) error) (err error) {
 
+	// Set up for the first itme through.
+	resetEnvironment()
+
 	for moreCommands := true; moreCommands; {
-		hubURL := config.GetHubURL()
-		connName := config.GetConnectionName()
-		token := config.GetSafeToken(true, false)
+		conn := getCurrentConnection()
+		hubURL := conn.HubURL
+		connName := conn.Name
+		token := conn.getSafeToken(true, false)
 		spacer := ""
 		if token != "" {
 			spacer = " "
@@ -109,10 +127,10 @@ func promptLoop(process func(string) error) (err error) {
 // Yes, I'm sure there's some kind of []rune
 // thing to do here instead.
 func statusDisplay() (s string) {
-	if config.Verbose() {
+	if Verbose() {
 		s = fmt.Sprintf("%s%s", s, "v")
 	}
-	if config.Debug() {
+	if Debug() {
 		s = fmt.Sprintf("%s%s", s, "d")
 	}
 	if len(s) > 0 {

@@ -6,24 +6,18 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jdrivas/sponde/config"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
+	// "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
 var (
-	rootCmd, setCmd, httpCmd, interactiveCmd           *cobra.Command
-	listCmd, describeCmd, createCmd, deleteCmd         *cobra.Command
-	addCmd, updateCmd, removeCmd                       *cobra.Command
-	startCmd, stopCmd                                  *cobra.Command
-	cfgFile, tokenFV, hubURLFV                         string
-	authClientIDFV, authClientSecretFV, authRedirectFV string
-
-	verbose, debug bool
+	rootCmd, setCmd, httpCmd, interactiveCmd   *cobra.Command
+	listCmd, describeCmd, createCmd, deleteCmd *cobra.Command
+	addCmd, updateCmd, removeCmd               *cobra.Command
+	startCmd, stopCmd                          *cobra.Command
 )
-
-const defaultHubURL = "http://127.0.0.1:8081"
 
 // This is pulled out specially, because for interactive
 // it gets run before each line is parsed.
@@ -32,8 +26,8 @@ const defaultHubURL = "http://127.0.0.1:8081"
 type runMode int
 
 const (
-	interactive runMode = 0
-	commandline runMode = 1
+	interactive runMode = iota + 1
+	commandline
 )
 
 func buildRoot(mode runMode) {
@@ -45,6 +39,10 @@ func buildRoot(mode runMode) {
 		Run: func(cmd *cobra.Command, args []string) {
 			DoInteractive()
 		},
+	}
+	// Add the commands to the rootCmd node (e.g. http get /users).
+	if mode != interactive {
+		rootCmd.AddCommand(interactiveCmd)
 	}
 
 	setCmd = &cobra.Command{
@@ -125,11 +123,6 @@ func buildRoot(mode runMode) {
 	}
 	rootCmd.AddCommand(httpCmd)
 
-	// Add the commands to the rootCmd node (e.g. http get /users).
-	if mode != interactive {
-		rootCmd.AddCommand(interactiveCmd)
-	}
-
 	buildJupyterHub(mode)
 }
 
@@ -143,6 +136,28 @@ func Execute() {
 	}
 }
 
+//
+// Flag and config file init.
+//
+
+const (
+	configFlagKey       = "config"
+	hubURLFlagKey       = "hub-url"
+	tokenFlagKey        = "token"
+	authRedirectFlagKey = "auth-redirect-url"
+	clientIDFlagKey     = "client-id"
+	clientSecretFlagKey = "client-secret"
+	verboseFlagKey      = "verbose"
+	debugFlagKey        = "debug"
+)
+
+var (
+	cfgFile, tokenFV, hubURLFV                         string
+	authClientIDFV, authClientSecretFV, authRedirectFV string
+
+	verbose, debug bool
+)
+
 func init() {
 
 	// Root is created here, rather than in build root, because for interative
@@ -154,42 +169,57 @@ func init() {
 		Long:  "A tool for managing a JuyterHub Hub through the JupyterHub API",
 	}
 
+	initFlags()
+	// initConfig()
+	// initConnectionWithFlags()
+
+	cobra.OnInitialize(cobraInit)
+}
+
+// Intended to be executed once before each commend.
+// This happens after the commands line has been parsed
+// but before any CMDs have been executed.
+func cobraInit() {
+	initConfig()
+	initConnectionWithFlags()
+}
+
+func initFlags() {
+
+	// Rest flags to start
+	rootCmd.ResetFlags()
+
 	// Flags available to everyone.
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file location. (default is .sponde.{yaml,json,toml}")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, configFlagKey, "", "config file location. (default is .sponde.{yaml,json,toml}")
 
 	// Connection paramaters
-	rootCmd.PersistentFlags().StringVarP(&tokenFV, "token", "t", "", "connect to the JupyterhHub with this authorization token.")
-	rootCmd.PersistentFlags().StringVarP(&hubURLFV, "hub-url", "u", "",
+	rootCmd.PersistentFlags().StringVarP(&tokenFV, tokenFlagKey, "t", "", "connect to the JupyterhHub with this authorization token.")
+	rootCmd.PersistentFlags().StringVarP(&hubURLFV, hubURLFlagKey, "u", "",
 		fmt.Sprintf("connect to the JupyterhHub at this URL. (default is %s)", defaultHubURL))
 
 	//  Auth paramaters
-	rootCmd.PersistentFlags().StringVarP(&authRedirectFV, "auth-redirect-url", "", "", "OAuth redirect url - only need for auth commands.")
-	rootCmd.PersistentFlags().StringVarP(&authClientIDFV, "client-id", "", "", "OAuth client id - only need for auth commands.")
-	rootCmd.PersistentFlags().StringVarP(&authClientSecretFV, "client-secret", "", "", "OAuth client secret - only need for auth commands.")
+	rootCmd.PersistentFlags().StringVarP(&authRedirectFV, authRedirectFlagKey, "", "", "OAuth redirect url - only need for auth commands.")
+	rootCmd.PersistentFlags().StringVarP(&authClientIDFV, clientIDFlagKey, "", "", "OAuth client id - only need for auth commands.")
+	rootCmd.PersistentFlags().StringVarP(&authClientSecretFV, clientSecretFlagKey, "", "", "OAuth client secret - only need for auth commands.")
 
 	// To suport configuration files populating values, as well as flags, bind the variables to
 	// the viper instance.
 
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Describe what is happening as its happening.")
-	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
+	rootCmd.PersistentFlags().BoolVarP(&verbose, verboseFlagKey, "v", false, "Describe what is happening as its happening.")
+	viper.BindPFlag(verboseFlagKey, rootCmd.PersistentFlags().Lookup(verboseFlagKey))
 
-	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "Describe details about what's happening.")
-	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
+	rootCmd.PersistentFlags().BoolVarP(&debug, debugFlagKey, "d", false, "Describe details about what's happening.")
+	viper.BindPFlag(debugFlagKey, rootCmd.PersistentFlags().Lookup(debugFlagKey))
 
-	// Called before any command, and so in interactive mode, each time a command is executed.
-	cobra.OnInitialize(initConfig)
-
-	// // Let's just read this in once at
-	// initConfig()
+	// Now init the Juphterhub specific flags.
+	initJupyterHubFlags()
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	if viper.GetBool("debug") {
-		fmt.Printf("Reading config file.\n")
-	}
+
+	// Fin a config file
 	if cfgFile != "" {
-		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
 		viper.SetConfigName("sponde")
@@ -208,28 +238,43 @@ func initConfig() {
 
 	viper.AutomaticEnv() // read in environment variables that match
 
-	// If a config file is found, read it in.
+	// Read in the config file.
 	if err := viper.ReadInConfig(); err == nil {
-		if viper.GetBool("debug") {
+		if Debug() {
 			fmt.Println("Using config file:", viper.ConfigFileUsed())
 		}
 	} else {
-		if viper.GetBool("debug") {
+		if Debug() {
 			fmt.Printf("Error loading config file: %s - %v\n", viper.ConfigFileUsed(), err)
 		}
 	}
 
-	// Set up config managed durable variables
-	initConnections()
 }
 
-func initConnections() {
+// This should be called AFTER the config file has been read.
+func initConnectionWithFlags() {
+	// Do the normal config file default
+	initConnections()
+	conn := getCurrentConnection()
 
-	config.InitConnections(defaultHubURL)
-	if rootCmd.PersistentFlags().Lookup("hub-url").Changed {
-		config.UpdateDefaultHubURL(hubURLFV)
+	update := false
+	// Then overide with flags as apprpriate
+	if rootCmd.PersistentFlags().Lookup(hubURLFlagKey).Changed {
+		conn.HubURL = hubURLFV
+		update = true
 	}
-	if rootCmd.PersistentFlags().Lookup("token").Changed {
-		config.UpdateDefaultToken(tokenFV)
+	if rootCmd.PersistentFlags().Lookup(tokenFlagKey).Changed {
+		conn.Token = tokenFV
+		update = true
 	}
+	if update {
+		updateCurrentConnection(conn)
+	}
+
+	if listConnsCmd.PersistentFlags().Lookup(showTokensOnceFlagKey).Changed {
+		setShowTokensOnce()
+	} else {
+		resetShowTokensOnce()
+	}
+
 }

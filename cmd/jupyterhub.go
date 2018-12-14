@@ -3,20 +3,14 @@ package cmd
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
-	"github.com/jdrivas/sponde/config"
 	jh "github.com/jdrivas/sponde/jupyterhub"
 	t "github.com/jdrivas/sponde/term"
-	"github.com/juju/ansiterm"
 	"github.com/spf13/cobra"
 )
 
 var listConnsCmd *cobra.Command
-var showTokens, showTokensOnce bool
-
-const showTokensOnceFlagKey = "show-tokens"
 
 func buildJupyterHub(mode runMode) {
 
@@ -28,20 +22,14 @@ func buildJupyterHub(mode runMode) {
 		Short: "Toggle display of tokens",
 		Long:  "Toggles displapy of tokens in application. This will have no effect if the configuration variable neverShowTokens has been set.",
 		Run: func(cmd *cobra.Command, args []string) {
-			config.SetShowTokens(!config.GetShowTokens())
-			if config.GetShowTokens() {
+			toggleShowTokens()
+			if getShowTokens() {
 				fmt.Printf("Showing tokens on.\n")
 			} else {
 				fmt.Printf("Showing tokens off.\n")
 			}
 		},
 	})
-	// This ensures that the value of showTokens is only
-	// initialized once at program startup, from the viper configuration file,
-	// which means that in interactive mode, this "show-tokens"  command
-	// is durable across mulitple command invoations and not reset by reading
-	// in the configuration file.
-	cobra.OnInitialize(initShowTokensOnce)
 
 	// Connections
 	setCmd.AddCommand(&cobra.Command{
@@ -51,40 +39,12 @@ func buildJupyterHub(mode runMode) {
 		Long:    "Sets the connection to the JupyterHub Hub to the named connection. ",
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			err := config.SetConnection(args[0])
-			if err != nil {
-				cmdError(err)
-			}
+			err := setConnection(args[0])
+			List(getAllConnections(), nil, err)
 		},
 	})
 
-	listConnsCmd = &cobra.Command{
-		Use:     "connections",
-		Aliases: []string{"conn", "con", "conns", "cons", "connection"},
-		Short:   "Available connections to a JupyterHub hub.",
-		Long:    "List all o fthe aviallable JupyterHub hub connections.",
-		Run: func(cmd *cobra.Command, args []string) {
-			conns := config.GetConnections()
-			currentName := config.GetConnectionName()
-			w := ansiterm.NewTabWriter(os.Stdout, 4, 4, 3, ' ', 0)
-			fmt.Fprintf(w, "%s\n", t.Title("\tName\tURL\tToken"))
-			for _, c := range conns {
-				name := t.Text(c.Name)
-				current := ""
-				if c.Name == currentName {
-					name = t.Highlight("%s", c.Name)
-					current = t.Highlight("%s", "*")
-				}
-				token := config.MakeSafeTokenString(c, false, true)
-				fmt.Fprintf(w, "%s\t%s\t%s\n", current, name, t.Text("%s\t%s", c.HubURL, token))
-			}
-			w.Flush()
-		},
-	}
 	listCmd.AddCommand(listConnsCmd)
-	// This flag should only work on the single command ie. it's not durable across
-	// incocations in interactive mode.
-	listConnsCmd.PersistentFlags().BoolVarP(&showTokensOnce, showTokensOnceFlagKey, "s", false, "Show tokens when listing connecitions.")
 
 	//
 	// Hub Commands
@@ -96,7 +56,7 @@ func buildJupyterHub(mode runMode) {
 		Short: "The version of JupyterHub.",
 		Long:  "Returns the version number of the running JupyterHub.",
 		Run: func(cmd *cobra.Command, args []string) {
-			version, resp, err := jh.GetVersion()
+			version, resp, err := getCurrentConnection().GetVersion()
 			List(Version(version), resp, err)
 		},
 	})
@@ -106,7 +66,7 @@ func buildJupyterHub(mode runMode) {
 		Short: "Hub operational details.",
 		Long:  "Returns detailed information about the running Hub",
 		Run: func(cmd *cobra.Command, args []string) {
-			info, resp, err := jh.GetInfo()
+			info, resp, err := getCurrentConnection().GetInfo()
 			List(Info(info), resp, err)
 		},
 	})
@@ -116,7 +76,7 @@ func buildJupyterHub(mode runMode) {
 		Short: "Shutdown the hub",
 		Long:  "Shutdown the connected JupyterHub hub",
 		Run: func(cmd *cobra.Command, args []string) {
-			resp, err := jh.Shutdown()
+			resp, err := getCurrentConnection().Shutdown()
 			display := func() {
 				var result string
 				switch resp.StatusCode {
@@ -141,7 +101,7 @@ func buildJupyterHub(mode runMode) {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			routes, resp, err := jh.GetProxy()
+			routes, resp, err := getCurrentConnection().GetProxy()
 			List(Routes(routes), resp, err)
 		},
 	}
@@ -190,7 +150,7 @@ If no user-id is provided then all Hub users are described.`,
 				Name:  args[0],
 				Admin: v,
 			}
-			updatedUser, resp, err := jh.UpdateUser(args[0], u)
+			updatedUser, resp, err := getCurrentConnection().UpdateUser(args[0], u)
 			List(UpdatedUser(updatedUser), resp, err)
 		},
 	})
@@ -204,7 +164,7 @@ If no user-id is provided then all Hub users are described.`,
 			u := jh.UpdatedUser{
 				Name: args[1],
 			}
-			updatedUser, resp, err := jh.UpdateUser(args[0], u)
+			updatedUser, resp, err := getCurrentConnection().UpdateUser(args[0], u)
 			List(UpdatedUser(updatedUser), resp, err)
 		},
 	})
@@ -220,7 +180,7 @@ This must be called with at least one user-id, but  may be called with a list.
 The API, and so this command does not actually obtain the token itself.`,
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			tokens, resp, err := jh.GetTokens(args[0])
+			tokens, resp, err := getCurrentConnection().GetTokens(args[0])
 			List(Tokens(tokens), resp, err)
 		},
 	}
@@ -233,7 +193,7 @@ The API, and so this command does not actually obtain the token itself.`,
 		Long:  `Provides detail about a specific token for <username> and <token-id>.`,
 		Args:  cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
-			token, resp, err := jh.GetToken(args[0], args[1])
+			token, resp, err := getCurrentConnection().GetToken(args[0], args[1])
 			Describe(APIToken(token), resp, err)
 		},
 	}
@@ -254,7 +214,7 @@ any other way. So, write it down if you intend to use it.`,
 				User: name,
 				Note: notes,
 			}
-			token, resp, err := jh.CreateToken(name, tokenTemplate)
+			token, resp, err := getCurrentConnection().CreateToken(name, tokenTemplate)
 			display := func() {
 				if err == nil && token.Token != "" {
 					fmt.Printf("\n%s %s\n\n", t.Success("New token:"), t.Title(token.Token))
@@ -272,7 +232,7 @@ any other way. So, write it down if you intend to use it.`,
 		Long:  `Deletes the token specified by <username> and <token-id>`,
 		Args:  cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
-			resp, err := jh.DeleteToken(args[0], args[1])
+			resp, err := getCurrentConnection().DeleteToken(args[0], args[1])
 			Display(resp, err)
 		},
 	}
@@ -285,7 +245,7 @@ any other way. So, write it down if you intend to use it.`,
 		Long:  "Starts a users notebook server and will tell you if the server has started yet.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			started, resp, err := jh.StartServer(args[0])
+			started, resp, err := getCurrentConnection().StartServer(args[0])
 			DisplayF(displayServerStartedF(started, resp, err), resp, err)
 		},
 	})
@@ -296,7 +256,7 @@ any other way. So, write it down if you intend to use it.`,
 		Long:  "Stops a users notebook server and will tell you if the server has started yet.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			stopped, resp, err := jh.StopServer(args[0])
+			stopped, resp, err := getCurrentConnection().StopServer(args[0])
 			DisplayF(displayServerStartedF(stopped, resp, err), resp, err)
 		},
 	})
@@ -307,7 +267,7 @@ any other way. So, write it down if you intend to use it.`,
 		Long:  "Start a named server for a user.",
 		Args:  cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
-			started, resp, err := jh.StartNamedServer(args[0], args[1])
+			started, resp, err := getCurrentConnection().StartNamedServer(args[0], args[1])
 			DisplayF(displayServerStartedF(started, resp, err), resp, err)
 		},
 	})
@@ -318,7 +278,7 @@ any other way. So, write it down if you intend to use it.`,
 		Long:  "Command for starting/stopping named servers.",
 		Args:  cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
-			stopped, resp, err := jh.StopNamedServer(args[0], args[1])
+			stopped, resp, err := getCurrentConnection().StopNamedServer(args[0], args[1])
 			DisplayF(displpayServerStopedF(stopped, resp, err), resp, err)
 		},
 	})
@@ -329,7 +289,7 @@ any other way. So, write it down if you intend to use it.`,
 		Short: "Groups registered with the Hub.",
 		Long:  "Returns details the groups that are defined with this Hub.",
 		Run: func(cmd *cobra.Command, args []string) {
-			groups, resp, err := jh.GetGroups()
+			groups, resp, err := getCurrentConnection().GetGroups()
 			List(Groups(groups), resp, err)
 		},
 	})
@@ -340,7 +300,7 @@ any other way. So, write it down if you intend to use it.`,
 		Long:  "Returns details the groups that are defined with this Hub.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			group, resp, err := jh.GetGroup(args[0])
+			group, resp, err := getCurrentConnection().GetGroup(args[0])
 			Describe(Group(group), resp, err)
 		},
 	})
@@ -351,7 +311,7 @@ any other way. So, write it down if you intend to use it.`,
 		Long:  "Create a a new group on the JupyterHub hub. Requires a name as the first and only argument.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			resp, err := jh.CreateGroup(args[0])
+			resp, err := getCurrentConnection().CreateGroup(args[0])
 			Display(resp, err)
 		},
 	})
@@ -362,7 +322,7 @@ any other way. So, write it down if you intend to use it.`,
 		Long:  "Delete a group on the JupyterHub hub. Requires a name as the first and only argument.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			resp, err := jh.DeleteGroup(args[0])
+			resp, err := getCurrentConnection().DeleteGroup(args[0])
 			Display(resp, err)
 		},
 	})
@@ -378,7 +338,7 @@ any other way. So, write it down if you intend to use it.`,
 				Name:      args[len(args)-1],
 				UserNames: args[:len(args)-1],
 			}
-			userGroup, resp, err := jh.AddUserToGroup(ug)
+			userGroup, resp, err := getCurrentConnection().AddUserToGroup(ug)
 			List(UserGroup(userGroup), resp, err)
 		},
 	})
@@ -393,7 +353,7 @@ any other way. So, write it down if you intend to use it.`,
 				Name:      args[len(args)-1],
 				UserNames: args[:len(args)-1],
 			}
-			userGroup, resp, err := jh.RemoveUserFromGroup(ug)
+			userGroup, resp, err := getCurrentConnection().RemoveUserFromGroup(ug)
 			List(UserGroup(userGroup), resp, err)
 		},
 	})
@@ -404,7 +364,7 @@ any other way. So, write it down if you intend to use it.`,
 		Short: "Services registered with the Hub.",
 		Long:  "Returns details of the services that the Hub supports.",
 		Run: func(cmd *cobra.Command, args []string) {
-			services, err := jh.GetServices()
+			services, err := getCurrentConnection().GetServices()
 			if err == nil && len(services) > 0 {
 				listServices(services)
 			} else {
@@ -427,9 +387,9 @@ any other way. So, write it down if you intend to use it.`,
 		Args: cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 2 {
-				httpDisplay(jh.Send(args[0], args[1], nil))
+				httpDisplay(getCurrentConnection().Send(args[0], args[1], nil))
 			} else {
-				httpDisplay(jh.SendJSONString(args[0], args[1], strings.Join(args[2:], " "), nil))
+				httpDisplay(getCurrentConnection().SendJSONString(args[0], args[1], strings.Join(args[2:], " "), nil))
 			}
 		},
 	})
@@ -441,7 +401,7 @@ any other way. So, write it down if you intend to use it.`,
 		Long:    "Sends an HTTP GET <arg> to the Jupyterhub hub.",
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			httpDisplay(jh.Get(args[0], nil))
+			httpDisplay(getCurrentConnection().Get(args[0], nil))
 		},
 	})
 
@@ -453,9 +413,9 @@ any other way. So, write it down if you intend to use it.`,
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) > 1 {
-				httpDisplay(jh.Post(args[0], strings.Join(args[1:], " "), nil))
+				httpDisplay(getCurrentConnection().Post(args[0], strings.Join(args[1:], " "), nil))
 			} else {
-				httpDisplay(jh.Post(args[0], nil, nil))
+				httpDisplay(getCurrentConnection().Post(args[0], nil, nil))
 			}
 		},
 	})
@@ -467,24 +427,45 @@ any other way. So, write it down if you intend to use it.`,
 		Long:    "Sends an HTTP DELETE <arg> to the Jupyterhub hub.",
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			httpDisplay(jh.Delete(args[0], nil, nil))
+			httpDisplay(getCurrentConnection().Delete(args[0], nil, nil))
 		},
 	})
 
 }
 
-// // Yes this is goofy.
-// // We want the flag to only effect once, not permentaly
-// // set the state.
-// // But we want the state to be durable if was set by command (show-tokens)
-// // it was set by commands.
-// // TODO: There are some patterns here to extract for next time.
-func initShowTokensOnce() {
-	if showTokensOnce {
-		config.ShowTokensOnce()
-	} else {
-		config.ResetShowTokensOnce()
+func init() {
+	// This is a bit like rootCmd, we want to initialize this and hang flags off of it before it gets
+	// executed. I'm not sure whty ....
+	listConnsCmd = &cobra.Command{
+		Use:     "connections",
+		Aliases: []string{"conn", "con", "conns", "cons", "connection"},
+		Short:   "Available connections to a JupyterHub hub.",
+		Long:    "List all o fthe aviallable JupyterHub hub connections.",
+		Run: func(cmd *cobra.Command, args []string) {
+			conns := getAllConnections()
+			// TODO: DisplayFunction when there is no resp or error
+			List(conns, nil, nil)
+		},
 	}
+
+}
+
+const showTokensOnceFlagKey = "show-tokens"
+
+var showTokensOnceFlagV bool
+
+func initJupyterHubFlags() {
+
+	// This flag should only work on the single command ie. it's not durable across
+	// invocations in interactive mode.
+	// This ensures that the value of showTokensOnce is only inited at the before
+	// anything has executed and will make sure that
+	// this flag only works when it is set each time through the interactive loop.
+	// cobra.OnInitialize(func() {
+	// fmt.Printf("** OnInitialize(cmd/jupytethub.go init()).\n")
+	listConnsCmd.ResetFlags()
+	listConnsCmd.PersistentFlags().BoolVarP(&showTokensOnceFlagV, showTokensOnceFlagKey, "s", false, "Show tokens when listing connecitions.")
+	// })
 }
 
 // For use when the command can take, but doesn't have to, an arbitrary number of

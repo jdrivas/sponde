@@ -45,8 +45,8 @@ type UpdatedUser struct {
 }
 
 // GetUser retruns a users information
-func GetUser(username string) (user User, resp *http.Response, err error) {
-	resp, err = Get(fmt.Sprintf("%s%s", "/users", username), &user)
+func (conn Connection) GetUser(username string) (user User, resp *http.Response, err error) {
+	resp, err = conn.Get(fmt.Sprintf("%s%s", "/users", username), &user)
 	return user, resp, err
 }
 
@@ -60,10 +60,10 @@ func GetUser(username string) (user User, resp *http.Response, err error) {
 // TODO: Depdneing on the previous TODO, note that only the last calls
 // http.Response is returned, this is indicative of needing a better solution (perhaps
 // move this logic into a CMD function that is used rather than here in JH.)
-func GetUsers(usernames []string) (users UserList, badUsers []string, resp *http.Response, err error) {
+func (conn Connection) GetUsers(usernames []string) (users UserList, badUsers []string, resp *http.Response, err error) {
 	for _, un := range usernames {
 		user := new(User)
-		resp, err = Get(fmt.Sprintf("%s%s", "/users/", un), user)
+		resp, err = conn.Get(fmt.Sprintf("%s%s", "/users/", un), user)
 		if err == nil {
 			users = append(users, *user)
 		} else {
@@ -79,15 +79,15 @@ func GetUsers(usernames []string) (users UserList, badUsers []string, resp *http
 }
 
 // GetAllUsers returns a list of logged in JupyterHub users.
-func GetAllUsers() (users UserList, resp *http.Response, err error) {
-	resp, err = Get("/users", &users)
+func (conn Connection) GetAllUsers() (users UserList, resp *http.Response, err error) {
+	resp, err = conn.Get("/users", &users)
 	return users, resp, err
 }
 
 // UpdateUser changes a users name or admin status. Use the UpdatedUser object to specify and you only need
 // to fill in the values that are changing, though it all works with a full object.
-func UpdateUser(name string, user UpdatedUser) (returnUser UpdatedUser, resp *http.Response, err error) {
-	resp, err = Patch(fmt.Sprintf("/users/%s", name), user, &returnUser)
+func (conn Connection) UpdateUser(name string, user UpdatedUser) (returnUser UpdatedUser, resp *http.Response, err error) {
+	resp, err = conn.Patch(fmt.Sprintf("/users/%s", name), user, &returnUser)
 	return returnUser, resp, err
 }
 
@@ -96,31 +96,31 @@ func UpdateUser(name string, user UpdatedUser) (returnUser UpdatedUser, resp *ht
 // StartServer will attempt to start the named users server. Started will return true if
 // the serer is now started, or fase if start has been requested but not yet started.
 // As usual if something goes wrong, err != nil.
-func StartServer(username string) (started bool, resp *http.Response, err error) {
-	return startNotebookServer(fmt.Sprintf("/users/%s/servers", username))
+func (conn Connection) StartServer(username string) (started bool, resp *http.Response, err error) {
+	return conn.startNotebookServer(fmt.Sprintf("/users/%s/servers", username))
 }
 
 // StopServer will attempt to stop the named users server. Stp[[ed]] will return true if
 // the serer is now stopped, or false if start has been requested but not yet started.
 // As usual if something goes wrong, err != nil.
-func StopServer(username string) (stopped bool, resp *http.Response, err error) {
-	return stopNotebookServer(fmt.Sprintf("/users/%s/servers", username))
+func (conn Connection) StopServer(username string) (stopped bool, resp *http.Response, err error) {
+	return conn.stopNotebookServer(fmt.Sprintf("/users/%s/servers", username))
 }
 
 // StartNamedServer works as StartServer for named servers. Servers are identified by a  user name and servername.
-func StartNamedServer(username, servername string) (started bool, resp *http.Response, err error) {
-	return startNotebookServer(fmt.Sprintf("/users/%s/servers/%s", username, servername))
+func (conn Connection) StartNamedServer(username, servername string) (started bool, resp *http.Response, err error) {
+	return conn.startNotebookServer(fmt.Sprintf("/users/%s/servers/%s", username, servername))
 }
 
 // StopNamedServer works as StopServer for named servers. Servers are identified by a user name and servername.
-func StopNamedServer(username, servername string) (started bool, resp *http.Response, err error) {
-	return stopNotebookServer(fmt.Sprintf("/users/%s/servers/%s", username, servername))
+func (conn Connection) StopNamedServer(username, servername string) (started bool, resp *http.Response, err error) {
+	return conn.stopNotebookServer(fmt.Sprintf("/users/%s/servers/%s", username, servername))
 }
 
 // StartNteookbServer implements the logic for the two starts above taking the full command
 // for either named server or just the default server for a user.
-func startNotebookServer(cmd string) (started bool, resp *http.Response, err error) {
-	resp, err = Post(cmd, nil, nil)
+func (conn Connection) startNotebookServer(cmd string) (started bool, resp *http.Response, err error) {
+	resp, err = conn.Post(cmd, nil, nil)
 
 	// This is probably overkill.
 	// But captures the expected behavior
@@ -138,8 +138,8 @@ func startNotebookServer(cmd string) (started bool, resp *http.Response, err err
 }
 
 // StoptNteookbServer implements the logic for the two starts above taking the full command
-func stopNotebookServer(cmd string) (stopped bool, resp *http.Response, err error) {
-	resp, err = Delete(cmd, nil, nil)
+func (conn Connection) stopNotebookServer(cmd string) (stopped bool, resp *http.Response, err error) {
+	resp, err = conn.Delete(cmd, nil, nil)
 	switch resp.StatusCode {
 	case http.StatusNoContent:
 		stopped = true
@@ -192,27 +192,29 @@ type OAuthToken struct {
 }
 
 // GetTokens returns all of the tokens for the specified users
-func GetTokens(username string) (token Tokens, resp *http.Response, err error) {
-	resp, err = Get(fmt.Sprintf("/users/%s/tokens", username), &token)
+func (conn Connection) GetTokens(username string) (token Tokens, resp *http.Response, err error) {
+	resp, err = conn.Get(fmt.Sprintf("/users/%s/tokens", username), &token)
 	return token, resp, err
 }
 
 // GetToken returns the details of a usres particular token given by username and tokenID.
-func GetToken(username, tokenID string) (token APIToken, resp *http.Response, err error) {
-	resp, err = Get(fmt.Sprintf("/users/%s/tokens/%s", username, tokenID), &token)
+func (conn Connection) GetToken(username, tokenID string) (token APIToken, resp *http.Response, err error) {
+	resp, err = conn.Get(fmt.Sprintf("/users/%s/tokens/%s", username, tokenID), &token)
 	return token, resp, err
 }
 
 // CreateToken will create a single APIToken from the Template provided,
 // for the user and return the newly created token.
 // Only Note will be saved in the new token.
-func CreateToken(username string, newToken APIToken) (createdToken APIToken, resp *http.Response, err error) {
-	resp, err = Post(fmt.Sprintf("/users/%s/tokens", username), newToken, &createdToken)
+func (conn Connection) CreateToken(username string, newToken APIToken) (createdToken APIToken, resp *http.Response, err error) {
+	resp, err = conn.Post(fmt.Sprintf("/users/%s/tokens", username), newToken, &createdToken)
 	return createdToken, resp, err
 }
 
 // DeleteToken deletes the token identified by usernamd and tokenID.
-func DeleteToken(username, tokenID string) (resp *http.Response, err error) {
-	resp, err = Delete(fmt.Sprintf("/users/%s/tokens/%s", username, tokenID), nil, nil)
+func (conn Connection) DeleteToken(username, tokenID string) (resp *http.Response, err error) {
+	resp, err = conn.Delete(fmt.Sprintf("/users/%s/tokens/%s", username, tokenID), nil, nil)
 	return resp, err
 }
+
+// '/hub/api/oauth2/authorize'

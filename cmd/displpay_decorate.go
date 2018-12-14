@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/jdrivas/sponde/config"
 	t "github.com/jdrivas/sponde/term"
 	"github.com/juju/ansiterm"
 )
@@ -122,9 +121,9 @@ func displpayServerStopedF(stopped bool, resp *http.Response, err error) func() 
 func render(renderer func(), resp *http.Response, err error) {
 
 	switch {
-	case config.Debug():
+	case Debug():
 		httpDecorate((errorDecorate(renderer, err)), resp)()
-	case config.Verbose():
+	case Verbose():
 		shortHTTPDecorate((errorDecorate(renderer, err)), resp)()
 	default:
 

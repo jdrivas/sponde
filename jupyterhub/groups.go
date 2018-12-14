@@ -5,52 +5,54 @@ import (
 	"net/http"
 )
 
-// Version is the version nof the running JupyterHub
+// Groups a list of groups.
 type Groups []Group
+
+// Group is the hub respresentation of a group of users.
 type Group struct {
 	Name      string   `json:"name"`
 	Kind      string   `json:"kind"`
 	UserNames []string `json:"users"`
 }
 
-// This is used to post deltes of users from a group.
+// UserGroup is state requried for Adding/Removing a user to a group
 type UserGroup struct {
 	Name      string   `json:"name"`
 	UserNames []string `json:"users"`
 }
 
 // GetGroup return a named group.
-func GetGroup(name string) (group Group, resp *http.Response, err error) {
-	resp, err = Get(fmt.Sprintf("/groups/%s", name), &group)
+func (conn Connection) GetGroup(name string) (group Group, resp *http.Response, err error) {
+	resp, err = conn.Get(fmt.Sprintf("/groups/%s", name), &group)
 	return group, resp, err
 }
 
 // GetGroups returns all of the groups on the hub.
-func GetGroups() (groups Groups, resp *http.Response, err error) {
-	resp, err = Get("/groups", &groups)
+func (conn Connection) GetGroups() (groups Groups, resp *http.Response, err error) {
+	resp, err = conn.Get("/groups", &groups)
 	return groups, resp, err
 }
 
 // CreateGroup creates a group with name on the hub.
-func CreateGroup(name string) (resp *http.Response, err error) {
-	resp, err = Post(fmt.Sprintf("/groups/%s", name), nil, nil)
+func (conn Connection) CreateGroup(name string) (resp *http.Response, err error) {
+	resp, err = conn.Post(fmt.Sprintf("/groups/%s", name), nil, nil)
 	return resp, err
 }
 
 // DeleteGroup deletes the group named name from the hub.
-func DeleteGroup(name string) (resp *http.Response, err error) {
-	resp, err = Delete(fmt.Sprintf("/groups/%s", name), nil, nil)
+func (conn Connection) DeleteGroup(name string) (resp *http.Response, err error) {
+	resp, err = conn.Delete(fmt.Sprintf("/groups/%s", name), nil, nil)
 	return resp, err
 }
 
 // AddUserToGroup adds the UserGroup.UserNames to the group UserGroup.Name on the hub.
-func AddUserToGroup(user UserGroup) (returnUsers UserGroup, resp *http.Response, err error) {
-	resp, err = Post(fmt.Sprintf("/groups/%s/users", user.Name), user, &returnUsers)
+func (conn Connection) AddUserToGroup(user UserGroup) (returnUsers UserGroup, resp *http.Response, err error) {
+	resp, err = conn.Post(fmt.Sprintf("/groups/%s/users", user.Name), user, &returnUsers)
 	return returnUsers, resp, err
 }
 
 // RemoveUserFromGroup  removes the UserGroup.UserNames from the group UserGroup.Name from the hub.
-func RemoveUserFromGroup(user UserGroup) (returnUsers UserGroup, resp *http.Response, err error) {
-	resp, err = Delete(fmt.Sprintf("/groups/%s/users", user.Name), user, &returnUsers)
+func (conn Connection) RemoveUserFromGroup(user UserGroup) (returnUsers UserGroup, resp *http.Response, err error) {
+	resp, err = conn.Delete(fmt.Sprintf("/groups/%s/users", user.Name), user, &returnUsers)
 	return returnUsers, resp, err
 }

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/spf13/viper"
 	"strings"
 )
 
@@ -32,4 +33,14 @@ func truthyString(v string) (bool, error) {
 		}
 	}
 	return false, fmt.Errorf("couldn't make a truth value from \"%s\"; try one of: %s", v, allValues)
+}
+
+// Debug returns whether debug mode is set.
+func Debug() bool {
+	return viper.GetBool(verboseFlagKey)
+}
+
+// Verbose returs whether verbose mode is set.
+func Verbose() bool {
+	return viper.GetBool(debugFlagKey)
 }

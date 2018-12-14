@@ -3,3 +3,4 @@ sponde.*
 .sponde*
 test.json
 .vscode
+/**/.DS_STORE

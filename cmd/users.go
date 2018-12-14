@@ -43,7 +43,7 @@ func (ul UserList) List() {
 		}
 		w.Flush()
 	} else {
-		fmt.Printf("There were no users.")
+		fmt.Printf("There were no users.\n")
 	}
 }
 
@@ -109,10 +109,12 @@ func doUsers(listFunc func(UserList, *http.Response, error)) func(*cobra.Command
 		var resp *http.Response
 		var err error
 
+		var conn = getCurrentConnection()
+
 		if len(args) > 0 {
-			users, badNames, resp, err = jh.GetUsers(args)
+			users, badNames, resp, err = conn.GetUsers(args)
 		} else {
-			users, resp, err = jh.GetAllUsers()
+			users, resp, err = conn.GetAllUsers()
 		}
 
 		// Display users
