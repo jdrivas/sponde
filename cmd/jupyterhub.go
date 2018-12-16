@@ -33,7 +33,7 @@ func buildJupyterHub(mode runMode) {
 
 	// Connections
 	setCmd.AddCommand(&cobra.Command{
-		Use:     "connection",
+		Use:     "connection <connection-name>",
 		Aliases: []string{"conn", "con"},
 		Short:   "Use the named connection to the Hub.",
 		Long:    "Sets the connection to the JupyterHub Hub to the named connection. ",
@@ -110,19 +110,19 @@ func buildJupyterHub(mode runMode) {
 
 	// Users
 	var listUsersCmd = &cobra.Command{
-		Use:   "users",
+		Use:   "users [<user-id> ...]",
 		Short: "Users accessing the hub.",
 		Long: `Returns a list of users from the connected Hub, 
 or if users are specified, data on those users`,
 		Run: doUsers(listUsers),
 	}
 	listCmd.AddCommand(listUsersCmd)
-	listUsersCmd.SetUsageTemplate(userArgsTemplate)
 
 	var describeUsersCmd = &cobra.Command{
-		Use:     "users",
-		Aliases: []string{"user"},
-		Short:   "Hub users.",
+		Use:                   "users [flags] [<user-id> ...]",
+		DisableFlagsInUseLine: true,
+		Aliases:               []string{"user"},
+		Short:                 "Hub users.",
 		Long: `Returns a longer description of hub users.
 If no user-id is provided then all Hub users are described.`,
 		Run: doUsers(describeUsers),
@@ -137,7 +137,7 @@ If no user-id is provided then all Hub users are described.`,
 	updateCmd.AddCommand(updateUsersCmd)
 
 	updateUsersCmd.AddCommand(&cobra.Command{
-		Use:   "admin",
+		Use:   "admin <true|false>",
 		Short: "Change the admin status of a user.",
 		Long:  "Set the admin status of an existing hub user to \"true\" or \"false\".",
 		Args: func(cmd *cobra.Command, args []string) (err error) {
@@ -156,7 +156,7 @@ If no user-id is provided then all Hub users are described.`,
 	})
 
 	updateUsersCmd.AddCommand(&cobra.Command{
-		Use:   "name",
+		Use:   "name <user-id>",
 		Short: "Change the name status of a user.",
 		Long:  "Set the name status of an existing hub user from <old-name> to <new-name>.",
 		Args:  cobra.MinimumNArgs(2),
@@ -169,10 +169,54 @@ If no user-id is provided then all Hub users are described.`,
 		},
 	})
 
+	// User Severs
+	startCmd.AddCommand(&cobra.Command{
+		Use:   "server <user-id>",
+		Short: "Starts a users notebook server.",
+		Long:  "Starts a users notebook server and will tell you if the server has started or pending starting on return.",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			started, resp, err := getCurrentConnection().StartServer(args[0])
+			DisplayF(displayServerStartedF(started, resp, err), resp, err)
+		},
+	})
+
+	stopCmd.AddCommand(&cobra.Command{
+		Use:   "server <user-id>",
+		Short: "Stops a users notebook server.",
+		Long:  "Stops a users notebook server and will tell you if the server has stopped or is pending stop on return.",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			stopped, resp, err := getCurrentConnection().StopServer(args[0])
+			DisplayF(displayServerStartedF(stopped, resp, err), resp, err)
+		},
+	})
+
+	startCmd.AddCommand(&cobra.Command{
+		Use:   "named-server <user-id> <server-name>",
+		Short: "Start a named server",
+		Long:  "Start a named server for a user.",
+		Args:  cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			started, resp, err := getCurrentConnection().StartNamedServer(args[0], args[1])
+			DisplayF(displayServerStartedF(started, resp, err), resp, err)
+		},
+	})
+
+	stopCmd.AddCommand(&cobra.Command{
+		Use:   "named-server <server-id> <server-name>",
+		Short: "Command for managing named servers.",
+		Long:  "Command for starting/stopping named servers.",
+		Args:  cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			stopped, resp, err := getCurrentConnection().StopNamedServer(args[0], args[1])
+			DisplayF(displpayServerStopedF(stopped, resp, err), resp, err)
+		},
+	})
+
 	// User Tokens
 	listTokensCmd := &cobra.Command{
-		// listCmd.AddCommand(&cobra.Command{
-		Use:     "tokens",
+		Use:     "tokens <user-id>",
 		Aliases: []string{"token"},
 		Short:   "Users security tokens",
 		Long: `Returns a list of a Hub user's seurity tokens.
@@ -185,28 +229,18 @@ The API, and so this command does not actually obtain the token itself.`,
 		},
 	}
 	listCmd.AddCommand(listTokensCmd)
-	listTokensCmd.SetUsageTemplate(userOneArgsTemplate)
-
-	describeTokenCmd := &cobra.Command{
-		Use:   "token",
-		Short: "Detail for a security tokens",
-		Long:  `Provides detail about a specific token for <username> and <token-id>.`,
-		Args:  cobra.MinimumNArgs(2),
-		Run: func(cmd *cobra.Command, args []string) {
-			token, resp, err := getCurrentConnection().GetToken(args[0], args[1])
-			Describe(APIToken(token), resp, err)
-		},
-	}
-	describeCmd.AddCommand(describeTokenCmd)
 
 	createTokenCmd := &cobra.Command{
-		Use:   "token",
+		Use:   "token [flags] <user-id> <note> ....",
 		Short: "Create an API token for a user.",
-		Long: `Creates a new API token for <username> with identifying text <note>.
+		Long: `Creates a new API token for <user-id> with identifying text <note> 
+(all text typed after the <user-id> is taken as a the test of the note.).
+
 NOTE: This will display a token independently of the show-tokens command or any settings. 
 This is the only place where this token will be displayed and you cannot get it back 
 any other way. So, write it down if you intend to use it.`,
-		Args: cobra.MinimumNArgs(2),
+		DisableFlagsInUseLine: true,
+		Args:                  cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			name := args[0]
 			notes := strings.Join(args[1:], " ")
@@ -227,9 +261,9 @@ any other way. So, write it down if you intend to use it.`,
 	createCmd.AddCommand(createTokenCmd)
 
 	deleteTokenCmd := &cobra.Command{
-		Use:   "token",
+		Use:   "token <user-id> <token-id>",
 		Short: "Delete a users secrutity token",
-		Long:  `Deletes the token specified by <username> and <token-id>`,
+		Long:  `Deletes the token specified by <user-id> and <token-id>`,
 		Args:  cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			resp, err := getCurrentConnection().DeleteToken(args[0], args[1])
@@ -238,56 +272,52 @@ any other way. So, write it down if you intend to use it.`,
 	}
 	deleteCmd.AddCommand(deleteTokenCmd)
 
-	// User Severs
-	startCmd.AddCommand(&cobra.Command{
-		Use:   "server",
-		Short: "Starts a users notebook server.",
-		Long:  "Starts a users notebook server and will tell you if the server has started yet.",
-		Args:  cobra.MinimumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			started, resp, err := getCurrentConnection().StartServer(args[0])
-			DisplayF(displayServerStartedF(started, resp, err), resp, err)
-		},
-	})
-
-	stopCmd.AddCommand(&cobra.Command{
-		Use:   "server",
-		Short: "Stops a users notebook server.",
-		Long:  "Stops a users notebook server and will tell you if the server has started yet.",
-		Args:  cobra.MinimumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			stopped, resp, err := getCurrentConnection().StopServer(args[0])
-			DisplayF(displayServerStartedF(stopped, resp, err), resp, err)
-		},
-	})
-
-	startCmd.AddCommand(&cobra.Command{
-		Use:   "named-server",
-		Short: "Start a named server",
-		Long:  "Start a named server for a user.",
+	describeTokenCmd := &cobra.Command{
+		Use:   "token <user-id> <token-id>",
+		Short: "Detail for a security tokens",
+		Long:  `Provides detail about a specific token for <user-id>> and <token-id>.`,
 		Args:  cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
-			started, resp, err := getCurrentConnection().StartNamedServer(args[0], args[1])
-			DisplayF(displayServerStartedF(started, resp, err), resp, err)
+			token, resp, err := getCurrentConnection().GetToken(args[0], args[1])
+			Describe(APIToken(token), resp, err)
 		},
-	})
+	}
+	describeCmd.AddCommand(describeTokenCmd)
 
-	stopCmd.AddCommand(&cobra.Command{
-		Use:   "named-server",
-		Short: "Command for managing named servers.",
-		Long:  "Command for starting/stopping named servers.",
-		Args:  cobra.MinimumNArgs(2),
+	// Hub Tokens
+
+	// TODO: This currently only gets users back
+	// and needs to get Services as well and then display correctly.
+	getCmd.AddCommand(&cobra.Command{
+		Use:   "owner <hub-token>",
+		Short: "Identify a user or service from a Hub API token.",
+		Long:  "Returns and displays a user or service from a Hub API token.",
+		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			stopped, resp, err := getCurrentConnection().StopNamedServer(args[0], args[1])
-			DisplayF(displpayServerStopedF(stopped, resp, err), resp, err)
+			user, resp, err := getCurrentConnection().GetTokenOwner(args[0])
+			Describe(UserList(UserList{user}), resp, err)
 		},
 	})
 
+	/* DEPRECATED so we'll leave it out.
+	createCmd.AddCommand(&cobra.Command{
+		Use:   "hub-token",
+		Short: "Create a new token for communicating with this Hub.",
+		Long:  "Retruns a new API token for communicating with this Hub.",
+		Run: func(cmd *cobra.Command, args []string) {
+			token, resp, err := getCurrentConnection().CreateAPIToken()
+			df := func() {
+				fmt.Printf("The new token is: %v\n", token)
+			}
+			DisplayF(df, resp, err)
+		},
+	})
+	*/
 	// Groups
 	listCmd.AddCommand(&cobra.Command{
 		Use:   "groups",
 		Short: "Groups registered with the Hub.",
-		Long:  "Returns details the groups that are defined with this Hub.",
+		Long:  "Returns details of the groups that are defined with this Hub.",
 		Run: func(cmd *cobra.Command, args []string) {
 			groups, resp, err := getCurrentConnection().GetGroups()
 			List(Groups(groups), resp, err)
@@ -295,9 +325,9 @@ any other way. So, write it down if you intend to use it.`,
 	})
 
 	describeCmd.AddCommand(&cobra.Command{
-		Use:   "group",
-		Short: "Groups registered with the Hub.",
-		Long:  "Returns details the groups that are defined with this Hub.",
+		Use:   "group <group-name>",
+		Short: "Details of a group",
+		Long:  "Returns the details of the Hub user group <group-name>.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			group, resp, err := getCurrentConnection().GetGroup(args[0])
@@ -306,9 +336,9 @@ any other way. So, write it down if you intend to use it.`,
 	})
 
 	createCmd.AddCommand(&cobra.Command{
-		Use:   "group",
+		Use:   "group <group-name>",
 		Short: "Create a group on the JupyterHub hub.",
-		Long:  "Create a a new group on the JupyterHub hub. Requires a name as the first and only argument.",
+		Long:  "Create a a new group named <group-name> on the hub.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			resp, err := getCurrentConnection().CreateGroup(args[0])
@@ -317,9 +347,9 @@ any other way. So, write it down if you intend to use it.`,
 	})
 
 	deleteCmd.AddCommand(&cobra.Command{
-		Use:   "group",
-		Short: "Delete a group on the JupyterHub hub.",
-		Long:  "Delete a group on the JupyterHub hub. Requires a name as the first and only argument.",
+		Use:   "group <group-name>",
+		Short: "Delete a group from the Hub.",
+		Long:  "Delete a group <group-nmae> from the JupyterHub hub.",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			resp, err := getCurrentConnection().DeleteGroup(args[0])
@@ -329,10 +359,13 @@ any other way. So, write it down if you intend to use it.`,
 
 	// Users in groups
 	addCmd.AddCommand(&cobra.Command{
-		Use:   "user",
-		Short: "Add user to group",
-		Long:  "Add a named user <user> to the gruoup <group>.",
-		Args:  cobra.MinimumNArgs(2),
+		Use:                   "user [flags] <user-id> <group-name> ...",
+		DisableFlagsInUseLine: true,
+		Aliases:               []string{"users"},
+		Short:                 "Add user to a group.",
+		Long:                  "Add a user <user-id> to a group <group-name> or list of groups <group1> <group2> ....",
+		Example:               "  sponde add user david admin ee201-spring2019",
+		Args:                  cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			ug := jh.UserGroup{
 				Name:      args[len(args)-1],
@@ -344,10 +377,12 @@ any other way. So, write it down if you intend to use it.`,
 	})
 
 	removeCmd.AddCommand(&cobra.Command{
-		Use:   "user",
-		Short: "Remove a user from a group",
-		Long:  "Remove a named user <user> from the gruoup <group>.",
-		Args:  cobra.MinimumNArgs(2),
+		Use:                   "user [flags] <group-name> <user-id> ...",
+		DisableFlagsInUseLine: true,
+		Aliases:               []string{"users"},
+		Short:                 "Remove a user or users from a group",
+		Long:                  "Remove a user or list of users from the Hub user group <group-name>.",
+		Args:                  cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			ug := jh.UserGroup{
 				Name:      args[len(args)-1],
@@ -378,38 +413,53 @@ any other way. So, write it down if you intend to use it.`,
 	})
 
 	// HTTP Util
+	// TODO: Consider validating the HTTP verbs.
 	httpCmd.AddCommand(&cobra.Command{
-		Use:     "send",
-		Aliases: []string{"SEND"},
-		Short:   "HTTP <method> <arg> to hub.",
-		Long: `Sends an HTTP <method> <arg> to the Jupyterhub hub.
-			<method> is an HTTP verb (e.g. "GET")`,
-		Args: cobra.MinimumNArgs(2),
+		Use:                   "send [flags] <method> <command> [<json-string> ....]",
+		DisableFlagsInUseLine: true,
+		Aliases:               []string{"SEND"},
+		Short:                 "HTTP <method> <command> to hub.",
+		Long: `Sends an HTTP <method> <command> to the Jupyterhub hub.
+<method> is an HTTP verb (e.g. "GET")
+
+All of the args following <command> are caputred as a single json 
+string and placed in the body of the request, 
+with the ContentType header set to application/json.`,
+		Example: `  sponde http send post /groups/test/users {"name": "admin", "users": ["david"]}`,
+		Args:    cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 2 {
-				httpDisplay(getCurrentConnection().Send(args[0], args[1], nil))
+				httpDisplay(getCurrentConnection().Send(strings.ToUpper(args[0]), args[1], nil))
 			} else {
-				httpDisplay(getCurrentConnection().SendJSONString(args[0], args[1], strings.Join(args[2:], " "), nil))
+				httpDisplay(getCurrentConnection().SendJSONString(strings.ToUpper(args[0]), args[1], strings.Join(args[2:], " "), nil))
 			}
 		},
 	})
 
 	httpCmd.AddCommand(&cobra.Command{
-		Use:     "get",
-		Aliases: []string{"GET"},
-		Short:   "HTTP GET <arg> to hub.",
-		Long:    "Sends an HTTP GET <arg> to the Jupyterhub hub.",
-		Args:    cobra.MinimumNArgs(1),
+		Use:                   "get [flags]  <command>",
+		Aliases:               []string{"GET"},
+		DisableFlagsInUseLine: true,
+		Short:                 "HTTP GET <arg> to hub.",
+		Args:                  cobra.MinimumNArgs(1),
+		Long:                  " Sends an HTTP GET <arg> to the Jupyterhub hub.",
+		Example:               `  sponde http get /users`,
 		Run: func(cmd *cobra.Command, args []string) {
 			httpDisplay(getCurrentConnection().Get(args[0], nil))
 		},
 	})
 
 	httpCmd.AddCommand(&cobra.Command{
-		Use:     "post",
-		Aliases: []string{"POST"},
-		Short:   "HTTP POST <arg> to hub.",
-		Long:    "Sends an HTTP POST <arg> to the Jupyterhub hub.",
+		Use:                   "post [flags] <command> [<json-string> ....]",
+		Aliases:               []string{"POST"},
+		DisableFlagsInUseLine: true,
+		Short:                 "HTTP POST <command> to hub.",
+		Long: `Sends an HTTP POST <command> to the Hub.  
+
+All of the args follwing <command> are caputred as a single json 
+string and placed in the body of the request, 
+with the ContentType header set to application/json.`,
+		Example: `  sponde http post /groups/test/users {"name": "admin", "users": ["david"]}`,
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) > 1 {
@@ -421,10 +471,15 @@ any other way. So, write it down if you intend to use it.`,
 	})
 
 	httpCmd.AddCommand(&cobra.Command{
-		Use:     "delete",
+		Use:     "delete [flags] <command> [<json-string> ....]",
 		Aliases: []string{"DELETE"},
 		Short:   "HTTP DELETE <arg> to hub.",
-		Long:    "Sends an HTTP DELETE <arg> to the Jupyterhub hub.",
+		Long: `Sends an HTTP DELETE <command> to the Hub.  
+
+All of the args following <command> are caputred as a single json 
+string and placed in the body of the request, 
+with the ContentType header set to application/json.`,
+		Example: `  sponde http delete /groups/test/users {"name": "admin", "users": ["david"]}`,
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			httpDisplay(getCurrentConnection().Delete(args[0], nil, nil))
@@ -467,56 +522,3 @@ func initJupyterHubFlags() {
 	listConnsCmd.PersistentFlags().BoolVarP(&showTokensOnceFlagV, showTokensOnceFlagKey, "s", false, "Show tokens when listing connecitions.")
 	// })
 }
-
-// For use when the command can take, but doesn't have to, an arbitrary number of
-// <user-id> arguments.
-var userArgsTemplate = `Usage:{{if .Runnable}}
-{{.UseLine}}{{end}}{{if .HasAvailableSubCommands}}
-{{.CommandPath}} [command]{{end}} [<user-id> ...]{{if gt (len .Aliases) 0}}
-
-Aliases:
-{{.NameAndAliases}}{{end}}{{if .HasExample}}
-
-Examples:
-{{.Example}}{{end}}{{if .HasAvailableSubCommands}}
-
-Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
-{{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
-
-Flags:
-{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
-
-Global Flags:
-{{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasHelpSubCommands}}
-
-Additional help topics:{{range .Commands}}{{if .IsAdditionalHelpTopicCommand}}
-{{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
-
-Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
-`
-
-// For use when the command must have a least one, but can take oer user arguemnts.
-var userOneArgsTemplate = `Usage:{{if .Runnable}}
-{{.UseLine}}{{end}}{{if .HasAvailableSubCommands}}
-{{.CommandPath}} [command]{{end}} <user-id> [<user-id> ...]{{if gt (len .Aliases) 0}}
-
-Aliases:
-{{.NameAndAliases}}{{end}}{{if .HasExample}}
-
-Examples:
-{{.Example}}{{end}}{{if .HasAvailableSubCommands}}
-
-Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
-{{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
-
-Flags:
-{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
-
-Global Flags:
-{{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasHelpSubCommands}}
-
-Additional help topics:{{range .Commands}}{{if .IsAdditionalHelpTopicCommand}}
-{{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
-
-Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
-`

@@ -13,10 +13,10 @@ import (
 )
 
 var (
-	rootCmd, setCmd, httpCmd, interactiveCmd   *cobra.Command
-	listCmd, describeCmd, createCmd, deleteCmd *cobra.Command
-	addCmd, updateCmd, removeCmd               *cobra.Command
-	startCmd, stopCmd                          *cobra.Command
+	rootCmd, setCmd, getCmd, httpCmd, interactiveCmd *cobra.Command
+	listCmd, describeCmd, createCmd, deleteCmd       *cobra.Command
+	addCmd, updateCmd, removeCmd                     *cobra.Command
+	startCmd, stopCmd                                *cobra.Command
 )
 
 // This is pulled out specially, because for interactive
@@ -51,6 +51,13 @@ func buildRoot(mode runMode) {
 		Long:  "Sets the value or a list of values on an object or  applicaiton state.",
 	}
 	rootCmd.AddCommand(setCmd)
+
+	getCmd = &cobra.Command{
+		Use:   "get",
+		Short: "Get a value",
+		Long:  "Get a value or list of values from an object or applicaiton state.",
+	}
+	rootCmd.AddCommand(getCmd)
 
 	createCmd = &cobra.Command{
 		Use:   "create",
@@ -164,7 +171,7 @@ func init() {
 	// any root command flags set on the original command line should persist
 	// to _each_ interactive command. They can  be explicitly overridden if needed.
 	rootCmd = &cobra.Command{
-		Use:   "sponde",
+		Use:   "sponde <command> [<args>]",
 		Short: "Connect and report on a JupyterHub Hub.",
 		Long:  "A tool for managing a JuyterHub Hub through the JupyterHub API",
 	}
