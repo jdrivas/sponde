@@ -7,113 +7,132 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
+	"os"
+	// "strings"
 
 	t "github.com/jdrivas/sponde/term"
 	"github.com/spf13/viper"
 )
 
 var (
-	hubClient = &http.Client{}
+	// Note: I don't expect that there are any dependencies that
+	// should cause this to be a problem.
+	hubClient = http.DefaultClient
 )
 
 //
 // Public API
 //
 
-// Get performs an HTTP GET on the JupyterHub and returns the results
-// aasumed to be JSON encoded into the  result object passed in.
-// If you pass in a []map[string]interface{}, you'll get a map of
-// objects back.
-func (conn Connection) Get(cmd string, result interface{}) (resp *http.Response, err error) {
-	return conn.Send(http.MethodGet, cmd, result)
-}
-
-// Post works like Get, but uses the POST verb. Post also excepts a content object
-// which it will attempt to encode into JSON.
-func (conn Connection) Post(cmd string, content, result interface{}) (resp *http.Response, err error) {
-	return conn.sendObject(http.MethodPost, cmd, content, result)
-}
-
-// Delete works like Post but uses the DELETE verb.
-func (conn Connection) Delete(cmd string, content, result interface{}) (resp *http.Response, err error) {
-	return conn.sendObject(http.MethodDelete, cmd, content, result)
-}
-
-// Patch works like Post, but uses the Delete verb.
-func (conn Connection) Patch(cmd string, content, result interface{}) (resp *http.Response, err error) {
-	return conn.sendObject(http.MethodPatch, cmd, content, result)
-}
-
-// Send works like Get but requires a verb as its first argument.
-func (conn Connection) Send(method, cmd string, result interface{}) (resp *http.Response, err error) {
-	var req *http.Request
-	req = conn.newRequest(method, cmd, nil)
-	return sendReq(req, result)
-}
-
-// SendJSONString takes a Method, a command and content in the form of a string that is expected
-// to be valid JSON. IT returns a JSON result like Get() above.
-func (conn Connection) SendJSONString(method, cmd string, content string, result interface{}) (resp *http.Response, err error) {
-
-	if verbose() {
-		prettyJSON := bytes.Buffer{}
-		err := json.Indent(&prettyJSON, []byte(content), "", "  ")
-		if err == nil {
-			fmt.Printf("%s\n%s\n", t.Title("Request Content JSON Body:"), t.Text(string(prettyJSON.Bytes())))
-		} else {
-			fmt.Printf("%s %s \n", t.Title("JSON Error:"), t.Fail("%v", err))
-			fmt.Printf("%s\n%s\n", t.Title("Req Content Body:"), t.Text(content))
-		}
-
-	}
-
-	buff := bytes.NewBuffer([]byte(content))
-	req := conn.newRequest(method, cmd, buff)
-	req.Header.Add("Content-Type", "application/json")
-	resp, err = sendReq(req, result)
-	return resp, err
-}
-
-// TODO: Merge the Sends into one.
-// They all take an interface to content and result.
-// Check type on content, if it's a string, then send it along
-// if it's not then marshal
-func (conn Connection) sendObject(method, cmd string, content interface{}, result interface{}) (resp *http.Response, err error) {
+// Send performs an HTTP request on the URL with the Token in the connection, using
+// the HTTP provided by method.
+// If content is non-nil, it's marshalled into the body  as a json string.
+// If content is a string, it's written directly into the booy (this string is not validated as correct JSON)
+// If result is non-nil Send umarshalls the response body,
+// aasumed to be JSON encoded, into the result object passed in.
+// If result is a []map[string]interface{}, you'll get a map of the JSON object.
+func (conn Connection) Send(method, cmd string, content interface{}, result interface{}) (resp *http.Response, err error) {
 
 	//  No content, jsut send.
 	if content == nil {
-		resp, err = conn.Send(method, cmd, result)
+		req := conn.newRequest(method, cmd, nil)
+		resp, err = sendReq(req, result)
 	} else {
-
-		// Otherwise, arshal the object ..,
+		// Otherwise, marshal the object and send the request.
 		var b []byte
-		b, err = json.Marshal(content)
+		switch c := content.(type) {
+		case string:
+			// If we use unmarshall on the string, it escapges the quotes: "foo" => \"foo\".
+			b = []byte(c)
+		default:
+			b, err = json.Marshal(c)
+		}
 		if err == nil {
-			if debug() {
-				prettyJSON := bytes.Buffer{}
-				errI := json.Indent(&prettyJSON, b, "", "  ")
-
-				fmt.Printf("Content to send: %#v\n", content)
-				if errI == nil {
-					fmt.Printf("%s %s\n", t.Title("Sending JSON:"), t.Text(string(prettyJSON.Bytes())))
-				} else {
-					fmt.Printf("%s %s\n", t.Title("Sending JSON:"), t.Text(string(b)))
-				}
-			}
-
-			// ... and send it
-			resp, err = conn.SendJSONString(method, cmd, string(b), result)
+			buff := bytes.NewBuffer(b)
+			req := conn.newRequest(method, cmd, buff)
+			req.Header.Add("Content-Type", "application/json")
+			resp, err = sendReq(req, result)
 		}
 	}
 	return resp, err
+}
+
+// Get works like Send with the GET verb,  but doesn't require a content object.
+func (conn Connection) Get(cmd string, result interface{}) (resp *http.Response, err error) {
+	return conn.Send(http.MethodGet, cmd, nil, result)
+}
+
+// Post works like Send using the POST verb.
+func (conn Connection) Post(cmd string, content, result interface{}) (resp *http.Response, err error) {
+	return conn.Send(http.MethodPost, cmd, content, result)
+}
+
+// Delete works like Send using the Delte verb.
+func (conn Connection) Delete(cmd string, content, result interface{}) (resp *http.Response, err error) {
+	return conn.Send(http.MethodDelete, cmd, content, result)
+}
+
+// Patch works like Send using the Patch verb.
+func (conn Connection) Patch(cmd string, content, result interface{}) (resp *http.Response, err error) {
+	return conn.Send(http.MethodPatch, cmd, content, result)
 }
 
 //
 // Private API
 //
 
+// sendReq sends along the request with some logging along the way.
+func sendReq(req *http.Request, result interface{}) (resp *http.Response, err error) {
+
+	switch {
+	// TODO: This wil dump the authorization token. Which it probably shouldn't.
+	case debug():
+		reqDump, dumpErr := httputil.DumpRequestOut(req, true)
+		reqStr := string(reqDump)
+		if dumpErr != nil {
+			fmt.Printf("Error dumping request (display as generic object): %v\n", dumpErr)
+			reqStr = fmt.Sprintf("%v", req)
+		}
+		fmt.Printf("%s %s\n", t.Title("Request"), t.Text(reqStr))
+		fmt.Println()
+	case verbose():
+		fmt.Printf("%s %s\n", t.Title("Request:"), t.Text("%s %s", req.Method, req.URL))
+		fmt.Println()
+	}
+
+	resp, err = hubClient.Do(req)
+	if err == nil {
+
+		if debug() {
+			respDump, dumpErr := httputil.DumpResponse(resp, true)
+			respStr := string(respDump)
+			if dumpErr != nil {
+				fmt.Printf("Error dumping response (display as generic object): %v\n", dumpErr)
+				respStr = fmt.Sprintf("%v", resp)
+			}
+			fmt.Printf("%s\n%s\n", t.Title("Respose:"), t.Text(respStr))
+			fmt.Println()
+		}
+
+		// Do this after the Dump, the dump reads out the response for reprting and
+		// replaces the reader with anotherone that has the data.
+		err = checkReturnCode(*resp)
+		if result != nil {
+			if err == nil {
+				err = unmarshal(resp, result)
+			}
+		}
+
+	}
+	return resp, err
+}
+
+// newRequest creates a request as usual prepending the connections HubURL to the cmd,
+// and adding the Authorization header using token.
 func (conn Connection) newRequest(method, cmd string, body io.Reader) *http.Request {
-	req, err := conn.jhReq(method, cmd, body)
+	// req, err := conn.jhReq(method, cmd, body)
+	req, err := http.NewRequest(method, conn.HubURL+cmd, body)
 	if err != nil {
 		panic(fmt.Sprintf("Coulnd't generate HTTP request - %s\n", err.Error()))
 	}
@@ -123,42 +142,8 @@ func (conn Connection) newRequest(method, cmd string, body io.Reader) *http.Requ
 	return req
 }
 
-func sendReq(req *http.Request, result interface{}) (resp *http.Response, err error) {
-	resp = nil
-	resp, err = hubClient.Do(req)
-
-	if err == nil {
-		err = checkReturnCode(*resp)
-		if result != nil {
-			if err == nil {
-				err = unmarshal(resp, result)
-			}
-		}
-
-		switch {
-		case debug():
-			fmt.Printf("%s %s\n", t.Title("Made HTTP Request:"), t.Text("%#v", req))
-			fmt.Printf("%s %s\n", t.Title("Response:"), t.Text("%#v", *resp))
-			fmt.Printf("HTTP: %s:%s\n", req.Method, req.URL)
-			fmt.Printf("Reponse: %s\n", resp.Status)
-		case verbose():
-			fmt.Printf("%s %s\n", t.Title("Made HTTP Request:"), t.Text("%s %s", req.Method, req.URL))
-			fmt.Printf("Reponse: %s\n", resp.Status)
-		}
-	}
-	return resp, err
-}
-
-func (conn Connection) jhReq(method, cmd string, body io.Reader) (*http.Request, error) {
-	return http.NewRequest(method, conn.jhAPIURL(cmd), body)
-}
-
-func (conn Connection) jhAPIURL(cmd string) string {
-	return fmt.Sprintf("%s%s", conn.HubURL, cmd)
-}
-
-// This eats the body in the response, but returns it in the
-//  obj passed in.
+// This eats the body in the response, but returns the body in
+//  obj passed in. They must match of course.
 func unmarshal(resp *http.Response, obj interface{}) (err error) {
 	var body []byte
 	body, err = ioutil.ReadAll(resp.Body)
@@ -166,10 +151,17 @@ func unmarshal(resp *http.Response, obj interface{}) (err error) {
 	if err == nil {
 
 		if debug() {
-			prettyJSON := bytes.Buffer{}
+			// TODO: Printf-ing the output of json.Indent through the bytes.Buffer.String
+			// produces cruft. However writting directly to it, works o.k.
+			// prettyJSON := bytes.Buffer{}
+			var prettyJSON bytes.Buffer
+			fmt.Fprintf(&prettyJSON, t.Title("Pretty print response body:\n"))
 			indentErr := json.Indent(&prettyJSON, body, "", " ")
 			if indentErr == nil {
-				fmt.Printf("%s %s\n", t.Title("Response body is:"), t.Text("%s\n", prettyJSON))
+				// fmt.Printf("%s %s\n", t.Title("Response body is:"), t.Text("%s\n", prettyJSON))
+				prettyJSON.WriteTo(os.Stdout)
+				fmt.Println()
+				fmt.Println()
 			} else {
 				fmt.Printf("%s\n", t.Fail("Error indenting JSON - %s", indentErr.Error()))
 				fmt.Printf("%s %s\n", t.Title("Body:"), t.Text(string(body)))
@@ -179,6 +171,7 @@ func unmarshal(resp *http.Response, obj interface{}) (err error) {
 		json.Unmarshal(body, &obj)
 		if debug() {
 			fmt.Printf("%s %s\n", t.Title("Unmarshaled object: "), t.Text("%#v", obj))
+			fmt.Println()
 		}
 	}
 	return err

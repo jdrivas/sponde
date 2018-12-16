@@ -164,10 +164,6 @@ func shortHTTPDecorate(f func(), resp *http.Response) func() {
 			body, err := ioutil.ReadAll(resp.Body)
 			resp.Body.Close()
 			if err == nil && resp.StatusCode != http.StatusNoContent {
-				// m, err := getMessage(body)
-				// if err == nil && m.Message != "" {
-				// 	fmt.Printf("%s %s\n", t.Title("Message:"), t.Alert(m.Message))
-				// }
 				prettyPrintBody(body)
 			}
 		}
@@ -255,11 +251,14 @@ func prettyPrintBody(body []byte) {
 			fmt.Printf("%s %s\n", t.Title("Message:"), t.Alert(m.Message))
 		}
 
-		// Print out the body
+		// Print out the pretty body
 		fmt.Printf("%s\n%s\n", t.Title("RESP JSON Body:"), t.Text("%s", string(prettyJSON.Bytes())))
 	} else {
-		fmt.Printf("%s\n%s\n", t.Title("RESP Body:"), t.Text("%s", string(body)))
-		fmt.Printf("%s %s \n", t.Title("JSON Error:"), t.Fail("%v", err))
+		// Much of the time, we've just ready past the body in properly handling the response.
+		if len(body) > 0 {
+			fmt.Printf("%s\n%s\n", t.Title("RESP Body:"), t.Text("%s", string(body)))
+			fmt.Printf("%s %s \n", t.Title("JSON Error:"), t.Fail("%v", err))
+		}
 	}
 
 }

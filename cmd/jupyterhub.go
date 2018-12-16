@@ -234,7 +234,7 @@ The API, and so this command does not actually obtain the token itself.`,
 		Use:   "token [flags] <user-id> <note> ....",
 		Short: "Create an API token for a user.",
 		Long: `Creates a new API token for <user-id> with identifying text <note> 
-(all text typed after the <user-id> is taken as a the test of the note.).
+(all text typed after the <user-id> is taken as a the text of the note.).
 
 NOTE: This will display a token independently of the show-tokens command or any settings. 
 This is the only place where this token will be displayed and you cannot get it back 
@@ -429,9 +429,9 @@ with the ContentType header set to application/json.`,
 		Args:    cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 2 {
-				httpDisplay(getCurrentConnection().Send(strings.ToUpper(args[0]), args[1], nil))
+				httpDisplay(getCurrentConnection().Send(strings.ToUpper(args[0]), args[1], nil, nil))
 			} else {
-				httpDisplay(getCurrentConnection().SendJSONString(strings.ToUpper(args[0]), args[1], strings.Join(args[2:], " "), nil))
+				httpDisplay(getCurrentConnection().Send(strings.ToUpper(args[0]), args[1], strings.Join(args[2:], " "), nil))
 			}
 		},
 	})

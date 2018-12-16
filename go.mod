@@ -1,6 +1,7 @@
 module github.com/jdrivas/sponde
 
 require (
+	fortio.org/fortio v1.3.0 // indirect
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/cosiner/argv v0.0.1 // indirect
 	github.com/derekparker/delve v1.1.0 // indirect
@@ -17,4 +18,6 @@ require (
 	github.com/spf13/pflag v1.0.2
 	github.com/spf13/viper v1.2.1
 	golang.org/x/arch v0.0.0-20181203225421-5a4828bb7045 // indirect
+	golang.org/x/net v0.0.0-20181213202711-891ebc4b82d6 // indirect
+	google.golang.org/grpc v1.17.0 // indirect
 )

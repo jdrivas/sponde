@@ -37,10 +37,22 @@ func truthyString(v string) (bool, error) {
 
 // Debug returns whether debug mode is set.
 func Debug() bool {
-	return viper.GetBool(verboseFlagKey)
+	return viper.GetBool(debugFlagKey)
+}
+
+// ToggleDebug toggles the flag and returns the new value.
+func ToggleDebug() bool {
+	viper.Set(debugFlagKey, viper.GetBool(debugFlagKey))
+	return Debug()
 }
 
 // Verbose returs whether verbose mode is set.
 func Verbose() bool {
-	return viper.GetBool(debugFlagKey)
+	return viper.GetBool(verboseFlagKey)
+}
+
+// ToggleVerbose toggles the flag and returns the new value.
+func ToggleVerbose() bool {
+	viper.Set(verboseFlagKey, viper.GetBool(verboseFlagKey))
+	return Verbose()
 }
